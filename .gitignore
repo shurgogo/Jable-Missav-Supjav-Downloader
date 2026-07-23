@@ -1,0 +1,69 @@
+# Node / Web dependencies & build outputs
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*.local
+.env.production
+.env.development
+
+# Rust & Cargo build artifacts
+target/
+src-tauri/target/
+**/target/
+Cargo.lock.build
+**/*.rs.bk
+
+# Application bundle outputs (.dmg, .app, .exe, .deb, .msi, etc.)
+*.dmg
+*.app
+*.exe
+*.msi
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+
+# Local downloaded media files, segment caches & temporary test outputs
+download/
+src-tauri/download/
+temp/
+tmp/
+*.mp4
+*.m3u8
+*.key
+concat.txt
+missav.html
+supjav.html
+jable.html
+
+# Raw design assets & scratch files
+app_icon.png
+app_icon_square.png
+avdl-py/
+tauri_architecture_plan.md
+爬虫.md
+
+# IDE, Editor & OS system files
+.vscode/
+.idea/
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.bak
+
+# Logs & Debug dumps
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
