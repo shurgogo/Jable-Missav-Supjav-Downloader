@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useDownloadStore } from "../store/useDownloadStore";
+import { useToastStore } from "../store/useToastStore";
 import { useTranslation } from "../i18n";
 
 export const Settings: React.FC = () => {
   const { t } = useTranslation();
+  const showError = useToastStore((state) => state.showError);
   const settings = useDownloadStore((state) => state.settings);
   const updateSettings = useDownloadStore((state) => state.updateSettings);
 
@@ -60,6 +62,7 @@ export const Settings: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to select directory:", err);
+      showError(err);
     }
   };
 
@@ -70,6 +73,7 @@ export const Settings: React.FC = () => {
       });
     } catch (err) {
       console.error("Failed to open download folder:", err);
+      showError(err);
     }
   };
 

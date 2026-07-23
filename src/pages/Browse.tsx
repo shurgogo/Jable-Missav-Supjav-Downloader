@@ -5,6 +5,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Search, Loader2, Compass, CheckSquare, Square, Download, Tag, ShieldCheck, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { VideoCard, VideoItem } from "../components/VideoCard";
 import { useDownloadStore } from "../store/useDownloadStore";
+import { useToastStore } from "../store/useToastStore";
+import { parseAppError } from "../utils/error";
 import { useTranslation, translateCategory, translateTagGroup, translateTagName } from "../i18n";
 
 interface Category {
@@ -24,6 +26,8 @@ interface BrowseProps {
 
 export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
   const { t, language } = useTranslation();
+  const showError = useToastStore((state) => state.showError);
+  const showSuccess = useToastStore((state) => state.showSuccess);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeUrl, setActiveUrl] = useState<string>("");
   const [activeTagUrl, setActiveTagUrl] = useState<string>("");
@@ -111,12 +115,20 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
 
       } catch (err) {
         console.error("Failed to load categories/tags:", err);
+        const parsed = parseAppError(err);
         const errStr = String(err);
-        if (errStr.includes("403") || errStr.toLowerCase().includes("forbidden") || errStr.toLowerCase().includes("cloudflare")) {
+        if (
+          parsed.code === "CF_VERIFICATION_REQUIRED" ||
+          errStr.includes("403") ||
+          errStr.toLowerCase().includes("forbidden") ||
+          errStr.toLowerCase().includes("cloudflare")
+        ) {
           console.warn(`[Browse] Categories fetch 403 Forbidden for ${site}, clearing invalid CF config.`);
           removeCfConfig(site);
+          setError(t("browse_verify_error"));
+        } else {
+          showError(err);
         }
-        setError("無法載入網站分類，請確認您的網路連線或重試防爬驗證。");
       } finally {
         setLoading(false);
       }
@@ -197,12 +209,22 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
         setTotalPages(response.total_pages);
       } catch (err) {
         console.error("Failed to load videos:", err);
+        const parsed = parseAppError(err);
         const errStr = String(err);
-        if (errStr.includes("403") || errStr.toLowerCase().includes("forbidden") || errStr.toLowerCase().includes("cloudflare") || errStr.includes("遭")) {
+        if (
+          parsed.code === "CF_VERIFICATION_REQUIRED" ||
+          errStr.includes("403") ||
+          errStr.toLowerCase().includes("forbidden") ||
+          errStr.toLowerCase().includes("cloudflare") ||
+          errStr.includes("遭")
+        ) {
           console.warn(`[Browse] Videos fetch 403 Forbidden for ${site}, clearing invalid CF config.`);
           removeCfConfig(site);
+          setError(t("browse_verify_error"));
+        } else {
+          showError(err);
+          setError(typeof err === "string" ? err : t("browse_verify_error"));
         }
-        setError(typeof err === "string" ? err : t("browse_verify_error"));
       } finally {
         setLoading(false);
       }
@@ -365,6 +387,7 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
     const saveDir = settings.downloadFolder;
     const maxConcurrent = settings.maxConcurrent;
     const resolution = settings.resolution;
+    showSuccess(`已成功加入 ${selectedVideos.length} 个影片到下載隊列`);
     for (const url of selectedVideos) {
       addTask(url);
       try {

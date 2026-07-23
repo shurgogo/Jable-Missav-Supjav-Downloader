@@ -674,7 +674,9 @@ pub async fn parse_supjav_page(
         
         let mut req2 = client.get(&supreme_url)
             .header("referer", "https://supjav.com/");
-        req2 = crate::scraper::apply_cf_headers(req2, cf_clearance, user_agent);
+        if !user_agent.trim().is_empty() {
+            req2 = req2.header("user-agent", user_agent.trim());
+        }
 
         let body = match req2.send().await {
             Ok(resp2) => match resp2.text().await {
@@ -695,9 +697,11 @@ pub async fn parse_supjav_page(
         if name == "ST" {
             if let Some(mp4_url) = decode_streamtape_url(&body) {
                 println!("[Downloader] Streamtape server [{}] direct MP4 URL: {}", name, mp4_url);
-                let mut probe_req = client.head(&mp4_url);
-                probe_req = apply_referer(probe_req, url);
-                probe_req = apply_cf_headers_safe(probe_req, &mp4_url, url, cf_clearance, user_agent);
+                let mut probe_req = client.head(&mp4_url)
+                    .header("referer", "https://streamtape.com/");
+                if !user_agent.trim().is_empty() {
+                    probe_req = probe_req.header("user-agent", user_agent.trim());
+                }
                 probe_req = probe_req.timeout(std::time::Duration::from_secs(5));
 
                 let (content_length, is_ok) = match probe_req.send().await {
@@ -706,9 +710,11 @@ pub async fn parse_supjav_page(
                         (cl, true)
                     }
                     _ => {
-                        let mut get_probe = client.get(&mp4_url);
-                        get_probe = apply_referer(get_probe, url);
-                        get_probe = apply_cf_headers_safe(get_probe, &mp4_url, url, cf_clearance, user_agent);
+                        let mut get_probe = client.get(&mp4_url)
+                            .header("referer", "https://streamtape.com/");
+                        if !user_agent.trim().is_empty() {
+                            get_probe = get_probe.header("user-agent", user_agent.trim());
+                        }
                         get_probe = get_probe.header("range", "bytes=0-100");
                         get_probe = get_probe.timeout(std::time::Duration::from_secs(5));
                         match get_probe.send().await {
@@ -972,8 +978,15 @@ pub async fn download_video(
         }
         
         let mut req = client.get(&page_info.m3u8_url);
-        req = apply_referer(req, &url);
-        req = apply_cf_headers_safe(req, &page_info.m3u8_url, &url, &cf_clearance, &user_agent);
+        if page_info.m3u8_url.contains("streamtape") {
+            req = req.header("referer", "https://streamtape.com/");
+            if !user_agent.trim().is_empty() {
+                req = req.header("user-agent", user_agent.trim());
+            }
+        } else {
+            req = apply_referer(req, &url);
+            req = apply_cf_headers_safe(req, &page_info.m3u8_url, &url, &cf_clearance, &user_agent);
+        }
         
         match req.send().await {
             Ok(resp) => {
@@ -998,6 +1011,7 @@ pub async fn download_video(
                 let mut stream_pin = Box::pin(stream);
                 
                 let mut downloaded = 0;
+                let start_time = std::time::Instant::now();
                 let mut last_emit = std::time::Instant::now();
                 
                 while let Some(chunk_result) = stream_pin.next().await {
@@ -1033,12 +1047,19 @@ pub async fn download_video(
                                     50
                                 };
                                 
+                                let elapsed = start_time.elapsed().as_secs_f64();
+                                let current_speed = if elapsed > 0.0 {
+                                    (downloaded as f64) / 1024.0 / elapsed
+                                } else {
+                                    0.0
+                                };
+
                                 let _ = window.emit("download-progress", ProgressPayload {
                                     url: url.clone(),
                                     title: page_info.title.clone(),
                                     index: progress_percent,
                                     total: 100,
-                                    speed_kbps: 0.0,
+                                    speed_kbps: current_speed,
                                     status: "downloading".to_string(),
                                 });
                             }

@@ -29,6 +29,7 @@ interface DownloadState {
   addTask: (url: string, title?: string, status?: string) => void;
   updateTask: (url: string, taskUpdate: Partial<TaskInfo>) => void;
   removeTask: (url: string) => void;
+  clearCompletedTasks: () => void;
   updateSettings: (settingsUpdate: Partial<AppSettings>) => void;
   setActiveSite: (site: "jable" | "missav" | "supjav") => void;
   setCfConfig: (domain: string, cfClearance: string, userAgent: string) => void;
@@ -106,6 +107,7 @@ export const useDownloadStore = create<DownloadState>()(
           delete newCompleted[url];
           return { tasks: newTasks, completedTasks: newCompleted };
         }),
+      clearCompletedTasks: () => set({ completedTasks: {} }),
       updateSettings: (settingsUpdate) =>
         set((state) => ({
           settings: { ...state.settings, ...settingsUpdate },

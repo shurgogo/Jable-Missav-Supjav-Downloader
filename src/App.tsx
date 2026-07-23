@@ -8,6 +8,7 @@ import { useDownloadStore } from "./store/useDownloadStore";
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ToastContainer } from "./components/Toast";
 
 function App() {
   const [activeTab, setActiveTab] = useState<string>("browse");
@@ -70,6 +71,7 @@ function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-base-100 font-sans">
+      <ToastContainer />
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}

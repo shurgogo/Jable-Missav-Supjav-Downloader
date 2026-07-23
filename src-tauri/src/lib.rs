@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod downloader;
+pub mod error;
 pub mod scraper;
 
 use commands::{

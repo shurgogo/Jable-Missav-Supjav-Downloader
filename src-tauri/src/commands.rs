@@ -65,7 +65,7 @@ pub async fn start_cf_verifier(
             "cf_verifier",
             WebviewUrl::External(url_for_build),
         )
-        .title(format!("請完成 {} 的 Cloudflare 驗證", domain_for_build))
+        .title(format!("防爬驗證 - {}", domain_for_build))
         .inner_size(680.0, 580.0)
         .resizable(true)
         .focused(true)
@@ -79,27 +79,24 @@ pub async fn start_cf_verifier(
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
 
-    // Pre-emptively clear pre-existing cf_clearance cookie from webview session so we start clean
-    let verifier_win_clear = verifier_win.clone();
-    let url_for_clear = url.clone();
-    tokio::spawn(async move {
-        for _ in 0..10 {
-            if let Ok(cookies) = verifier_win_clear.cookies_for_url(url_for_clear.clone()) {
-                let mut found = false;
-                for c in cookies {
-                    if c.name() == "cf_clearance" {
-                        found = true;
-                        let _ = verifier_win_clear.delete_cookie(c);
-                    }
-                }
-                if !found {
-                    break;
-                }
+    // 1. Get initial cf_clearance value to ignore it during verification polling
+    let old_cf = {
+        let configs = state.cf_configs.lock().unwrap();
+        configs
+            .get(&domain)
+            .map(|cfg| cfg.cf_clearance.clone())
+            .unwrap_or_default()
+    };
+
+    // Attempt to purge any old cf_clearance cookie from webview session
+    if let Ok(cookies) = verifier_win.cookies_for_url(url.clone()) {
+        for c in cookies {
+            if c.name() == "cf_clearance" {
+                let _ = verifier_win.delete_cookie(c);
+                println!("[Verifier] Purged initial cf_clearance cookie from webview session.");
             }
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
-        println!("[Verifier] Cookie jar initialized for domain verification.");
-    });
+    }
 
     let cf_configs_clone = state.cf_configs.clone();
     let app_clone = app.clone();
@@ -112,9 +109,6 @@ pub async fn start_cf_verifier(
             "[Verifier] Started background cookie polling for: {}",
             domain_clone
         );
-        // Wait 800ms before starting polling to allow launch cookie clearance
-        tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
-
         let mut last_cf_found: Option<String> = None;
 
         for _ in 0..240 {
@@ -129,6 +123,23 @@ pub async fn start_cf_verifier(
                 }
             };
 
+            // Check page title and URL to ensure Cloudflare challenge page is no longer active
+            let title = verifier_win.title().unwrap_or_default();
+            let current_url = verifier_win
+                .url()
+                .map(|u| u.to_string())
+                .unwrap_or_default();
+
+            let is_still_challenge = title.contains("Just a moment")
+                || title.contains("Attention Required")
+                || title.contains("Checking your browser")
+                || title.contains("Please wait")
+                || title.contains("请稍候")
+                || title.contains("验证中")
+                || title.contains("安全檢查")
+                || current_url.contains("cf-challenge")
+                || current_url.contains("cf_challenge");
+
             if let Ok(cookies) = verifier_win.cookies_for_url(url_clone.clone()) {
                 let mut cf_val = None;
                 for c in cookies {
@@ -139,49 +150,58 @@ pub async fn start_cf_verifier(
                 }
 
                 if let Some(cf) = cf_val {
-                    println!(
-                        "[Verifier] Cloudflare verification completed! Retrieved cf_clearance: {}",
-                        cf
-                    );
+                    // Ignore if it's identical to the old pre-invalidation cookie
+                    if cf == old_cf {
+                        continue;
+                    }
+
                     last_cf_found = Some(cf.clone());
 
-                    // Save to global configs
-                    {
-                        let mut configs = cf_configs_clone.lock().unwrap();
-                        configs.insert(
-                            domain_clone.clone(),
-                            CfConfig {
-                                cf_clearance: cf.clone(),
+                    // ONLY auto-close when the challenge page title is cleared AND a fresh cf_clearance cookie exists!
+                    if !is_still_challenge {
+                        println!(
+                            "[Verifier] Cloudflare challenge passed for {}! Retrieved new cf_clearance: {}",
+                            domain_clone, cf
+                        );
+
+                        // Save to global configs
+                        {
+                            let mut configs = cf_configs_clone.lock().unwrap();
+                            configs.insert(
+                                domain_clone.clone(),
+                                CfConfig {
+                                    cf_clearance: cf.clone(),
+                                    user_agent: user_agent_clone.clone(),
+                                },
+                            );
+                        }
+
+                        // Emit success to frontend
+                        #[derive(serde::Serialize, Clone)]
+                        struct SuccessPayload {
+                            domain: String,
+                            cf_clearance: String,
+                            user_agent: String,
+                        }
+                        let _ = app_clone.emit(
+                            "cf-verification-success",
+                            SuccessPayload {
+                                domain: domain_clone.clone(),
+                                cf_clearance: cf,
                                 user_agent: user_agent_clone.clone(),
                             },
                         );
-                    }
 
-                    // Emit success to frontend
-                    #[derive(serde::Serialize, Clone)]
-                    struct SuccessPayload {
-                        domain: String,
-                        cf_clearance: String,
-                        user_agent: String,
+                        // Automatically close verifier window on main thread
+                        let app_for_close = app_clone.clone();
+                        let app_for_close_inner = app_for_close.clone();
+                        let _ = app_for_close.run_on_main_thread(move || {
+                            if let Some(w) = app_for_close_inner.get_webview_window("cf_verifier") {
+                                let _ = w.close();
+                            }
+                        });
+                        break;
                     }
-                    let _ = app_clone.emit(
-                        "cf-verification-success",
-                        SuccessPayload {
-                            domain: domain_clone.clone(),
-                            cf_clearance: cf,
-                            user_agent: user_agent_clone.clone(),
-                        },
-                    );
-
-                    // Automatically close verifier window on main thread
-                    let app_for_close = app_clone.clone();
-                    let app_for_close_inner = app_for_close.clone();
-                    let _ = app_for_close.run_on_main_thread(move || {
-                        if let Some(w) = app_for_close_inner.get_webview_window("cf_verifier") {
-                            let _ = w.close();
-                        }
-                    });
-                    break;
                 }
             }
         }
@@ -193,10 +213,7 @@ pub async fn start_cf_verifier(
             drop(configs);
 
             if !already_saved {
-                println!(
-                    "[Verifier] Window closed with active cf_clearance: {}",
-                    cf
-                );
+                println!("[Verifier] Window closed with active cf_clearance: {}", cf);
                 {
                     let mut configs = cf_configs_clone.lock().unwrap();
                     configs.insert(
@@ -263,7 +280,7 @@ pub async fn fetch_jable_list(
         &user_agent,
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| crate::error::map_scraper_error(e.to_string(), &url))
 }
 
 #[tauri::command]
@@ -288,7 +305,7 @@ pub async fn search_jable(
         &user_agent,
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| crate::error::map_scraper_error(e.to_string(), "https://jable.tv/"))
 }
 
 #[tauri::command]
@@ -318,7 +335,7 @@ pub async fn fetch_missav_list(
     };
     missav::fetch_list(&state.client, &url, page, &lang, &cf_clearance, &user_agent)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| crate::error::map_scraper_error(e.to_string(), &url))
 }
 
 #[tauri::command]
@@ -342,7 +359,7 @@ pub async fn search_missav(
         &user_agent,
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| crate::error::map_scraper_error(e.to_string(), &active_domain))
 }
 
 #[tauri::command]
@@ -363,7 +380,7 @@ pub async fn fetch_supjav_list(
     };
     supjav::fetch_list(&state.client, &url, page, &lang, &cf_clearance, &user_agent)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| crate::error::map_scraper_error(e.to_string(), &url))
 }
 
 #[tauri::command]
@@ -386,7 +403,7 @@ pub async fn search_supjav(
         &user_agent,
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| crate::error::map_scraper_error(e.to_string(), "https://supjav.com/"))
 }
 
 #[tauri::command]
@@ -483,7 +500,11 @@ pub async fn resume_download(
             let mut recovered = None;
             let download_dirs = vec![
                 save_dir.clone().map(std::path::PathBuf::from),
-                app_handle.path().download_dir().ok().map(|d| d.join("avdl")),
+                app_handle
+                    .path()
+                    .download_dir()
+                    .ok()
+                    .map(|d| d.join("avdl")),
             ];
 
             for dir_opt in download_dirs {
