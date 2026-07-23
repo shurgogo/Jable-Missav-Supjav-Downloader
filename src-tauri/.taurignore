@@ -1,0 +1,9 @@
+# Ignore download directory and temporary download files from triggering auto-rebuild
+download/
+download/**
+temp_*
+temp_*/**
+**/temp_*
+**/download
+**/download/**
+**/temp_*/**

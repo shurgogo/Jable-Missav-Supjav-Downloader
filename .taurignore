@@ -1,0 +1,13 @@
+# Ignore download directory and temporary download files from triggering auto-rebuild
+download/
+download/**
+temp_*
+temp_*/**
+src-tauri/download/
+src-tauri/download/**
+src-tauri/temp_*
+src-tauri/temp_*/**
+**/temp_*
+**/download
+**/download/**
+**/temp_*/**

@@ -12,6 +12,7 @@ dist-ssr/
 target/
 src-tauri/target/
 **/target/
+src-tauri/gen/
 Cargo.lock.build
 **/*.rs.bk
 
