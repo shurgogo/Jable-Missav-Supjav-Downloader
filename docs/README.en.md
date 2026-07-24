@@ -2,7 +2,7 @@
 
 🌐 Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | **English** | [日本語](README.ja.md)
 
-A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust, supporting JableTV, MissAV, and SupJav.
+> ⚡ **Ultra Lightweight · Maximum Performance** — A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust. Features a featherweight binary (~10 MB) with ultra-low memory footprint. Supports JableTV, MissAV, and SupJav.
 
 ![Light Mode](../docs/images/preview01.png)
 
@@ -23,10 +23,11 @@ A high-performance desktop video downloading and browsing tool built with Tauri 
 - 🎬 **Trailer Auto-Filtering**: Automatically skips short preview videos under 600 seconds and switches to full-length video sources.
 
 ### 🎨 Interface & Interaction
+- 🪶 **Ultra Lightweight & Low Footprint**: Powered by native Tauri v2 architecture, the executable package is only **~10 MB+**, consuming over **80% less memory** than Electron apps with millisecond startup speeds.
 - 📐 **Responsive Grid Layout**: Automatically adjusts column count based on window size to prevent cover image stretching on large screens and text compression on small screens.
 - 👁️ **Card Hover Preview**: Loads video preview clips when hovering over cards.
 - 📋 **Batch Task Control & Dual-Section Management**: Provides a 2-row compact layout for the download queue with hover tooltips, supporting select-all, multi-select, and batch start, pause, cancel, and one-click history clearing.
-- 🎨 **Multi-Theme Switching Support**: Built-in multiple theme appearances (including dark mode and light mode), supporting seamless real-time one-click switching.
+- 🎨 **Flat Design & Multi-Theme Support**: Designed with shadcn/ui flat visual guidelines, offering built-in dark and light modes with seamless one-click switching.
 - 📊 **Disk Storage Analytics**: Displays the total capacity, remaining available space, and download file usage ratio of the target drive.
 - 🌐 **Multi-Language Support**: Supports Traditional Chinese, Simplified Chinese, English, and Japanese interfaces, as well as multi-language video titles.
 
@@ -36,7 +37,7 @@ A high-performance desktop video downloading and browsing tool built with Tauri 
 
 - 🖥️ **Desktop Framework**: Tauri v2
 - ⚛️ **Frontend Framework**: React 19, TypeScript, Vite
-- 🎨 **UI & Styling**: Tailwind CSS, daisyUI, Lucide React
+- 🎨 **UI & Styling**: Tailwind CSS v4, shadcn/ui, Lucide React
 - 🐻 **State Management**: Zustand
 - 🦀 **Backend**: Rust(2021)
 - 🌐 **Networking & Decryption**: `reqwest` / `wreq`, `scraper`, `aes` / `cbc`

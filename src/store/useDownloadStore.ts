@@ -17,6 +17,7 @@ export interface AppSettings {
   theme: string;
   cfConfigs: Record<string, { cfClearance: string; userAgent: string }>;
   language: string;
+  enableLogging?: boolean;
 }
 
 export enum Site {
@@ -56,6 +57,7 @@ export const useDownloadStore = create<DownloadState>()(
         theme: "dark",
         cfConfigs: {},
         language: "zh-TW",
+        enableLogging: false,
       },
       activeSite: Site.Jable,
       toggleSelectVideo: (url) =>

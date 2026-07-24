@@ -3,6 +3,7 @@ import { BarChart3, Database, Trophy, ShieldCheck, Loader2 } from "lucide-react"
 import { useDownloadStore } from "../store/useDownloadStore";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 
 export const StatsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -15,7 +16,6 @@ export const StatsPage: React.FC = () => {
   const [diskSpace, setDiskSpace] = useState<{ total_space: number; available_space: number } | null>(null);
   const [loadingDisk, setLoadingDisk] = useState<boolean>(true);
 
-  // Combine historical completed tasks with active tasks
   const allTasks = useMemo(() => {
     return { ...completedTasksHistory, ...tasks };
   }, [completedTasksHistory, tasks]);
@@ -140,126 +140,140 @@ export const StatsPage: React.FC = () => {
   }, [tasks]);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-base-100 text-base-content select-none">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background text-foreground select-none">
       <style>{`
         .word-cloud-tag {
           transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s, opacity 0.2s;
         }
         .word-cloud-tag:hover {
-          transform: scale(1.3) translateY(-5px) rotate(3deg);
-          filter: brightness(1.25);
+          transform: scale(1.25) translateY(-4px);
+          filter: brightness(1.2);
           z-index: 10;
         }
       `}</style>
 
       {/* Header */}
-      <header className="p-6 border-b border-base-200 bg-base-200/20 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <BarChart3 className="w-6 h-6 text-error" />
-          <h2 className="text-xl font-black">{t("stats_title")}</h2>
+      <header className="p-5 border-b border-border bg-card/40 backdrop-blur-md flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <BarChart3 className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-extrabold">{t("stats_title")}</h2>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 overflow-y-auto p-6 bg-base-100/50">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="flex-1 overflow-y-auto p-6 bg-background/50">
+        <div className="max-w-4xl mx-auto space-y-6">
           
-          {/* Stats section */}
-          <div className="stats stats-vertical lg:stats-horizontal shadow bg-base-300 w-full rounded-2xl border border-base-100">
-            <div className="stat">
-              <div className="stat-figure text-error">
-                <Trophy className="w-8 h-8" />
-              </div>
-              <div className="stat-title text-base-content/50 font-bold text-xs">{t("stats_total")}</div>
-              <div className="stat-value text-error font-black text-3xl mt-1">{totalTasks}</div>
-              <div className="stat-desc font-bold text-success mt-1">
-                {t("stats_total_desc", { count: completedTasks })}
-              </div>
-            </div>
-            
-            <div className="stat">
-              <div className="stat-figure text-pink-500">
-                <Database className="w-8 h-8" />
-              </div>
-              <div className="stat-title text-base-content/50 font-bold text-xs">{t("stats_storage")}</div>
-              <div className="stat-value text-pink-500 font-black text-3xl mt-1">
-                {loadingSize ? (
-                  <span className="flex items-center gap-2 text-lg text-base-content/40 font-bold">
-                    <Loader2 className="w-4 h-4 animate-spin text-pink-500" /> {t("stats_loading")}
-                  </span>
-                ) : (
-                  formatBytes(folderSize)
-                )}
-              </div>
-              <div className="stat-desc font-bold text-base-content/40 mt-1 truncate max-w-[240px]" title={settings.downloadFolder}>
-                {t("stats_folder_path", { path: settings.downloadFolder === "download" ? "Downloads/avdl" : settings.downloadFolder })}
-              </div>
-            </div>
-            
-            <div className="stat">
-              <div className="stat-figure text-info">
-                <ShieldCheck className="w-8 h-8" />
-              </div>
-              <div className="stat-title text-base-content/50 font-bold text-xs">{t("stats_rate")}</div>
-              <div className="stat-value text-info font-black text-3xl mt-1">{completionRate}%</div>
-              <div className="stat-desc font-bold text-base-content/40 mt-1">
-                {t("stats_rate_desc", { count: totalTasks - completedTasks })}
-              </div>
-            </div>
+          {/* Stats Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="relative overflow-hidden border-border/80">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground">{t("stats_total")}</p>
+                  <p className="text-3xl font-black text-primary mt-1">{totalTasks}</p>
+                  <p className="text-xs font-bold text-emerald-500 mt-1">
+                    {t("stats_total_desc", { count: completedTasks })}
+                  </p>
+                </div>
+                <div className="p-3 bg-primary/10 text-primary rounded-xl">
+                  <Trophy className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-border/80">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground">{t("stats_storage")}</p>
+                  <div className="text-3xl font-black text-rose-500 mt-1">
+                    {loadingSize ? (
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground font-bold">
+                        <Loader2 className="w-4 h-4 animate-spin text-rose-500" /> {t("stats_loading")}
+                      </span>
+                    ) : (
+                      formatBytes(folderSize)
+                    )}
+                  </div>
+                  <p className="text-xs font-bold text-muted-foreground/70 mt-1 truncate max-w-[200px]" title={settings.downloadFolder}>
+                    {t("stats_folder_path", { path: settings.downloadFolder === "download" ? "Downloads/avdl" : settings.downloadFolder })}
+                  </p>
+                </div>
+                <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
+                  <Database className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-border/80">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground">{t("stats_rate")}</p>
+                  <p className="text-3xl font-black text-blue-500 mt-1">{completionRate}%</p>
+                  <p className="text-xs font-bold text-muted-foreground/70 mt-1">
+                    {t("stats_rate_desc", { count: totalTasks - completedTasks })}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Storage & Disk Status Card */}
-          <div className="card bg-base-300 border border-base-100 shadow-xl rounded-2xl">
-            <div className="card-body p-6 gap-6">
-              <h3 className="card-title text-base font-extrabold border-b border-base-100 pb-3 text-pink-500 flex items-center gap-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-extrabold border-b border-border pb-3 text-primary flex items-center gap-2">
                 <Database className="w-5 h-5" /> {t("stats_health_title")}
-              </h3>
+              </CardTitle>
+            </CardHeader>
 
+            <CardContent>
               {loadingSize || loadingDisk || !diskStats ? (
                 <div className="flex items-center justify-center py-8 gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-pink-500" />
-                  <span className="text-sm font-bold text-base-content/40">{t("stats_loading")}</span>
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm font-bold text-muted-foreground">{t("stats_loading")}</span>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Progress Bar */}
                   <div className="space-y-2">
-                    <div className="w-full bg-base-200/50 h-5 rounded-full overflow-hidden flex border border-base-100">
+                    <div className="w-full bg-muted/60 h-4 rounded-full overflow-hidden flex border border-border">
                       {diskStats.appPercent > 0 && (
                         <div 
                           style={{ width: `${diskStats.appPercent}%` }} 
-                          className="bg-pink-500 h-full transition-all duration-500"
+                          className="bg-primary h-full transition-all duration-500"
                           title={`${t("stats_bar_app")}: ${formatBytes(diskStats.appUsed)} (${diskStats.appPercent}%)`}
                         />
                       )}
                       {diskStats.otherPercent > 0 && (
                         <div 
                           style={{ width: `${diskStats.otherPercent}%` }} 
-                          className="bg-neutral-content/40 dark:bg-neutral h-full transition-all duration-500"
+                          className="bg-muted-foreground/40 h-full transition-all duration-500"
                           title={`${t("stats_bar_other")}: ${formatBytes(diskStats.otherUsed)} (${diskStats.otherPercent}%)`}
                         />
                       )}
                       {diskStats.freePercent > 0 && (
                         <div 
                           style={{ width: `${diskStats.freePercent}%` }} 
-                          className="bg-success h-full transition-all duration-500"
+                          className="bg-emerald-500 h-full transition-all duration-500"
                           title={`${t("stats_bar_free")}: ${formatBytes(diskStats.free)} (${diskStats.freePercent}%)`}
                         />
                       )}
                     </div>
                     
                     {/* Legend */}
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-base-content/70">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-bold text-muted-foreground">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full bg-pink-500"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
                         <span>{t("stats_bar_app")}: {formatBytes(diskStats.appUsed)} ({diskStats.appPercent}%)</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full bg-neutral-content/40 dark:bg-neutral"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40"></span>
                         <span>{t("stats_bar_other")}: {formatBytes(diskStats.otherUsed)} ({diskStats.otherPercent}%)</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full bg-success"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                         <span>{t("stats_bar_free")}: {formatBytes(diskStats.free)} ({diskStats.freeRatioStr})</span>
                       </div>
                     </div>
@@ -267,58 +281,53 @@ export const StatsPage: React.FC = () => {
 
                   {/* Detailed Disk Specs Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                    <div className="bg-base-200/40 p-4 rounded-xl border border-base-100 flex flex-col gap-1">
-                      <span className="text-[10px] text-base-content/40 font-extrabold uppercase">{t("stats_total_disk")}</span>
-                      <span className="text-lg font-black text-base-content/80">{formatBytes(diskStats.total)}</span>
+                    <div className="bg-muted/30 p-3.5 rounded-xl border border-border flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground font-extrabold uppercase">{t("stats_total_disk")}</span>
+                      <span className="text-base font-black text-foreground">{formatBytes(diskStats.total)}</span>
                     </div>
-                    <div className="bg-base-200/40 p-4 rounded-xl border border-base-100 flex flex-col gap-1">
-                      <span className="text-[10px] text-base-content/40 font-extrabold uppercase">{t("stats_ratio")}</span>
-                      <span className="text-lg font-black text-pink-500">{diskStats.ratioStr}</span>
+                    <div className="bg-muted/30 p-3.5 rounded-xl border border-border flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground font-extrabold uppercase">{t("stats_ratio")}</span>
+                      <span className="text-base font-black text-primary">{diskStats.ratioStr}</span>
                     </div>
-                    <div className="bg-base-200/40 p-4 rounded-xl border border-base-100 flex flex-col gap-1">
-                      <span className="text-[10px] text-base-content/40 font-extrabold uppercase">{t("stats_used")}</span>
-                      <span className="text-lg font-black text-base-content/80">{formatBytes(diskStats.used)}</span>
+                    <div className="bg-muted/30 p-3.5 rounded-xl border border-border flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground font-extrabold uppercase">{t("stats_used")}</span>
+                      <span className="text-base font-black text-foreground">{formatBytes(diskStats.used)}</span>
                     </div>
-                    <div className="bg-base-200/40 p-4 rounded-xl border border-base-100 flex flex-col gap-1">
-                      <span className="text-[10px] text-base-content/40 font-extrabold uppercase">{t("stats_free")}</span>
-                      <span className="text-lg font-black text-success">{formatBytes(diskStats.free)}</span>
+                    <div className="bg-muted/30 p-3.5 rounded-xl border border-border flex flex-col gap-1">
+                      <span className="text-[10px] text-muted-foreground font-extrabold uppercase">{t("stats_free")}</span>
+                      <span className="text-base font-black text-emerald-500">{formatBytes(diskStats.free)}</span>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Preference Word Cloud */}
-          <div className="card bg-base-300 border border-base-100 shadow-xl rounded-2xl">
-            <div className="card-body p-6 gap-6">
-              <h3 className="card-title text-base font-extrabold border-b border-base-100 pb-3 text-error">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-extrabold border-b border-border pb-3 text-primary">
                 {t("stats_cloud_title")}
-              </h3>
-              
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent>
               {wordCloudTags.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <BarChart3 className="w-12 h-12 text-base-content/25 mb-3" />
-                  <p className="text-sm text-base-content/50 font-bold">
+                  <BarChart3 className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground font-bold">
                     {t("stats_cloud_empty")}
                   </p>
-                  <p className="text-xs text-base-content/40 mt-1">
+                  <p className="text-xs text-muted-foreground/70 mt-1">
                     {t("stats_cloud_empty_desc")}
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center justify-center gap-4 py-8 px-4 min-h-[300px] bg-base-100/30 rounded-2xl border border-base-100/50">
-                  {wordCloudTags.map((tag, idx) => {
+                <div className="flex flex-wrap items-center justify-center gap-3.5 py-8 px-4 min-h-[260px] bg-muted/20 rounded-xl border border-border/50">
+                  {wordCloudTags.map((tag) => {
                     const maxCount = Math.max(...wordCloudTags.map(t => t.value));
-                    const size = 12 + 22 * (tag.value / (maxCount || 1));
-                    const opacity = 0.6 + 0.4 * (tag.value / (maxCount || 1));
-                    
-                    const colorClasses = [
-                      "text-error", "text-pink-500", "text-info", 
-                      "text-success", "text-warning", "text-primary",
-                      "text-secondary", "text-accent"
-                    ];
-                    const color = colorClasses[idx % colorClasses.length];
+                    const size = 12 + 20 * (tag.value / (maxCount || 1));
+                    const opacity = 0.65 + 0.35 * (tag.value / (maxCount || 1));
 
                     return (
                       <span
@@ -328,7 +337,7 @@ export const StatsPage: React.FC = () => {
                           opacity: opacity,
                           display: "inline-block"
                         }}
-                        className={`word-cloud-tag font-black ${color} px-3.5 py-1.5 rounded-2xl bg-base-300 hover:bg-base-200 border border-base-100/60 cursor-pointer shadow-md hover:shadow-lg`}
+                        className="word-cloud-tag font-black text-primary px-3 py-1 rounded-xl bg-card border border-border cursor-pointer shadow-sm hover:shadow-md"
                         title={`下載了 ${tag.value} 次`}
                       >
                         {tag.text}
@@ -337,8 +346,8 @@ export const StatsPage: React.FC = () => {
                   })}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
         </div>
       </main>

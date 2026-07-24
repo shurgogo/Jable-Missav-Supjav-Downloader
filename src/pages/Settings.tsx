@@ -1,20 +1,37 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink } from "lucide-react";
+import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useDownloadStore } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
 import { useTranslation } from "../i18n";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Switch } from "../components/ui/switch";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "../components/ui/select";
 
 export const Settings: React.FC = () => {
   const { t } = useTranslation();
   const showError = useToastStore((state) => state.showError);
+  const showSuccess = useToastStore((state) => state.showSuccess);
   const settings = useDownloadStore((state) => state.settings);
   const updateSettings = useDownloadStore((state) => state.updateSettings);
+  const tasks = useDownloadStore((state) => state.tasks);
+  const completedTasks = useDownloadStore((state) => state.completedTasks);
+  const activeSite = useDownloadStore((state) => state.activeSite);
 
   const [showToast, setShowToast] = useState<boolean>(false);
+  const [lastLogPath, setLastLogPath] = useState<string | null>(null);
   const toastTimeoutRef = useRef<any>(null);
 
-  // Clean up timer on unmount
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) {
@@ -31,6 +48,69 @@ export const Settings: React.FC = () => {
     toastTimeoutRef.current = setTimeout(() => {
       setShowToast(false);
     }, 1500);
+  };
+
+  const handleGenerateLog = async (overrideFolder?: string) => {
+    try {
+      const folder = overrideFolder || settings.downloadFolder;
+      const activeTasksCount = Object.keys(tasks).length;
+      const completedTasksCount = Object.keys(completedTasks).length;
+      
+      const cfDomains = Object.keys(settings.cfConfigs || {}).join(", ") || "None";
+      
+      const taskSummary = Object.values(tasks)
+        .map((t) => `  - Title: ${t.title} | Status: ${t.status} | Progress: ${t.index}/${t.total}`)
+        .join("\n") || "  None";
+
+      const completedSummary = Object.values(completedTasks)
+        .map((t) => `  - Title: ${t.title} | Status: ${t.status}`)
+        .join("\n") || "  None";
+
+      const logContent = [
+        "==================================================",
+        "          AVDL Diagnostic Debug Log               ",
+        "==================================================",
+        `Timestamp:           ${new Date().toISOString()} (${new Date().toLocaleString()})`,
+        `App Version:         v0.1.2`,
+        `User Agent:          ${navigator.userAgent}`,
+        `Active Site:         ${activeSite}`,
+        `Download Folder:     ${folder}`,
+        `Max Concurrent:      ${settings.maxConcurrent}`,
+        `Resolution:          ${settings.resolution}`,
+        `Theme:               ${settings.theme}`,
+        `Language:            ${settings.language}`,
+        `Logging Enabled:     ${Boolean(settings.enableLogging)}`,
+        `CF Verified Domains: ${cfDomains}`,
+        "--------------------------------------------------",
+        `Active Tasks (${activeTasksCount}):`,
+        taskSummary,
+        "--------------------------------------------------",
+        `Completed Tasks (${completedTasksCount}):`,
+        completedSummary,
+        "==================================================",
+      ].join("\n");
+
+      const path: string = await invoke("generate_debug_log", {
+        saveDir: folder,
+        logContent,
+      });
+
+      setLastLogPath(path);
+      showSuccess(`${t("settings_logging_toast")}: ${path.split("/").pop() || path}`);
+    } catch (err) {
+      console.error("Failed to generate debug log:", err);
+      showError(`生成排查日志失败: ${String(err)}`);
+    }
+  };
+
+  const handleLoggingToggle = async (checked: boolean) => {
+    updateSettings({ enableLogging: checked });
+    triggerAutoSaveToast();
+    if (checked) {
+      await handleGenerateLog();
+    } else {
+      setLastLogPath(null);
+    }
   };
 
   const handleAutoVerify = async (urlStr: string) => {
@@ -78,12 +158,12 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-base-100 text-base-content relative">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background text-foreground relative">
 
       {/* Toast Alert */}
       {showToast && (
-        <div className="toast toast-top toast-center z-50">
-          <div className="alert alert-success shadow-lg flex items-center gap-2 font-bold text-white">
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-4">
+          <div className="bg-emerald-600 text-white shadow-lg rounded-xl flex items-center gap-2 px-4 py-3 font-bold text-sm">
             <CheckCircle2 className="w-5 h-5" />
             <span>{t("settings_autosave_toast")}</span>
           </div>
@@ -91,214 +171,245 @@ export const Settings: React.FC = () => {
       )}
 
       {/* Header */}
-      <header className="p-6 border-b border-base-200 bg-base-200/20 flex items-center justify-between shrink-0 select-none">
-        <div className="flex items-center gap-3">
-          <SettingsIcon className="w-6 h-6 text-error" />
-          <h2 className="text-xl font-black">{t("settings_title")}</h2>
+      <header className="p-5 border-b border-border bg-card/40 backdrop-blur-md flex items-center justify-between shrink-0 select-none">
+        <div className="flex items-center gap-2.5">
+          <SettingsIcon className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-extrabold">{t("settings_title")}</h2>
         </div>
-        <div className="badge badge-success text-white font-extrabold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm shadow-success/15 animate-pulse">
-          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+        <Badge variant="success" className="font-extrabold px-3 py-1 flex items-center gap-1.5 animate-pulse">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           {t("settings_autosave_badge")}
-        </div>
+        </Badge>
       </header>
 
       {/* Settings Form Grid */}
       <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto space-y-8">
-          {/* Card: Download Preferences */}
-          <div className="card bg-base-300 border border-base-100 shadow-xl">
-            <div className="card-body gap-6">
-              <h3 className="card-title text-base font-extrabold border-b border-base-100 pb-2 text-error">
-                {t("nav_settings")}
-              </h3>
+        <div className="max-w-3xl mx-auto space-y-6">
 
+          {/* Card: Download Preferences */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-extrabold text-primary border-b border-border pb-2">
+                {t("nav_settings")}
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
               {/* Setting row: folder */}
-              <div className="form-control w-full">
-                <label className="label">
-                  <span className="label-text font-black">{t("settings_folder")}</span>
+              <div className="space-y-2">
+                <label className="text-sm font-extrabold text-foreground block">
+                  {t("settings_folder")}
                 </label>
-                <div className="join w-full shadow-sm">
-                  <input
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <Input
                     type="text"
                     value={settings.downloadFolder}
                     onChange={(e) => {
                       updateSettings({ downloadFolder: e.target.value });
                       triggerAutoSaveToast();
                     }}
-                    className="input input-bordered join-item w-full font-bold focus:outline-none focus:border-error"
+                    className="flex-1 font-bold"
                     placeholder="例如: download 或 /Users/username/Downloads/my_videos"
                   />
-                  <button
-                    onClick={handleBrowse}
-                    className="btn btn-error text-white join-item font-bold px-4 gap-2 shrink-0 shadow-sm hover:brightness-110 active:scale-95 transition-all"
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                    {t("settings_folder_browse")}
-                  </button>
-                  <button
-                    onClick={handleOpenFolder}
-                    className="btn bg-base-200 hover:bg-base-100 text-base-content join-item font-bold px-4 gap-2 shrink-0 active:scale-95 transition-all"
-                  >
-                    <ExternalLink className="w-4 h-4 text-base-content/70" />
-                    {t("settings_folder_open")}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                    <Button
+                      onClick={handleBrowse}
+                      className="font-bold flex-1 sm:flex-none"
+                    >
+                      <FolderOpen className="w-4 h-4 mr-1" />
+                      {t("settings_folder_browse")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleOpenFolder}
+                      className="font-bold flex-1 sm:flex-none"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1 text-muted-foreground" />
+                      {t("settings_folder_open")}
+                    </Button>
+                  </div>
                 </div>
-                <span className="label-text-alt mt-1.5 text-base-content/40 font-semibold">
+                <p className="text-xs text-muted-foreground font-medium">
                   {t("settings_folder_desc")}
-                </span>
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Setting: concurrent */}
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text font-black">{t("settings_concurrent")}</span>
+                <div className="space-y-2">
+                  <label className="text-sm font-extrabold text-foreground block">
+                    {t("settings_concurrent")}
                   </label>
-                  <select
-                    className="select select-bordered font-bold focus:outline-none"
-                    value={settings.maxConcurrent}
-                    onChange={(e) => {
-                      updateSettings({ maxConcurrent: Number(e.target.value) });
+                  <Select
+                    value={String(settings.maxConcurrent)}
+                    onValueChange={(val) => {
+                      updateSettings({ maxConcurrent: Number(val) });
                       triggerAutoSaveToast();
                     }}
                   >
-                    {[1, 2, 3, 4, 5, 6, 8, 10, 12, 16].map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="label-text-alt mt-1 text-base-content/40 font-semibold">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 8, 10, 12, 16].map((num) => (
+                        <SelectItem key={num} value={String(num)}>
+                          {num}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground font-medium">
                     {t("settings_concurrent_desc")}
-                  </span>
+                  </p>
                 </div>
 
                 {/* Setting: resolution */}
-                <div className="form-control w-full">
-                  <label className="label">
-                    <span className="label-text font-black">{t("settings_resolution")}</span>
+                <div className="space-y-2">
+                  <label className="text-sm font-extrabold text-foreground block">
+                    {t("settings_resolution")}
                   </label>
-                  <select
-                    className="select select-bordered font-bold focus:outline-none"
+                  <Select
                     value={settings.resolution}
-                    onChange={(e) => {
-                      updateSettings({ resolution: e.target.value });
+                    onValueChange={(val) => {
+                      updateSettings({ resolution: val });
                       triggerAutoSaveToast();
                     }}
                   >
-                    <option value="highest">Highest</option>
-                    <option value="1080">1080P</option>
-                    <option value="720">720P</option>
-                    <option value="lowest">Lowest</option>
-                  </select>
-                  <span className="label-text-alt mt-1 text-base-content/40 font-semibold">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="highest">Highest</SelectItem>
+                      <SelectItem value="1080">1080P</SelectItem>
+                      <SelectItem value="720">720P</SelectItem>
+                      <SelectItem value="lowest">Lowest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground font-medium">
                     {t("settings_resolution_desc")}
-                  </span>
+                  </p>
                 </div>
               </div>
 
               {/* Setting: Theme selection */}
-              <div className="form-control w-full border-t border-base-100 pt-4">
-                <label className="label">
-                  <span className="label-text font-black text-base-content/85">{t("settings_theme")}</span>
+              <div className="space-y-2 border-t border-border pt-4">
+                <label className="text-sm font-extrabold text-foreground block">
+                  {t("settings_theme")}
                 </label>
-                <select
-                  className="select select-bordered font-bold focus:outline-none"
+                <Select
                   value={settings.theme || "dark"}
-                  onChange={(e) => {
-                    const newTheme = e.target.value;
-                    updateSettings({ theme: newTheme });
+                  onValueChange={(val) => {
+                    updateSettings({ theme: val });
                     triggerAutoSaveToast();
                   }}
                 >
-                  <option value="light">☀️ Light (明亮)</option>
-                  <option value="dark">🌙 Dark (暗黑)</option>
-                  <option value="cupcake">🧁 Cupcake (馬卡龍)</option>
-                  <option value="bumblebee">🐝 Bumblebee (大黃蜂)</option>
-                  <option value="emerald">🟢 Emerald (翡翠)</option>
-                  <option value="corporate">🏢 Corporate (商務藍)</option>
-                  <option value="synthwave">🔮 Synthwave (霓虹紫)</option>
-                  <option value="retro">📻 Retro (復古)</option>
-                  <option value="cyberpunk">💛 Cyberpunk (賽博朋克)</option>
-                  <option value="valentine">💗 Valentine (情人節)</option>
-                  <option value="halloween">🎃 Halloween (萬聖節)</option>
-                  <option value="garden">🌸 Garden (花園)</option>
-                  <option value="forest">🌲 Forest (森林)</option>
-                  <option value="aqua">🌊 Aqua (深海藍)</option>
-                  <option value="lofi">🎹 Lofi (簡約黑白)</option>
-                  <option value="pastel">🎨 Pastel (柔和馬卡龍)</option>
-                  <option value="fantasy">🦄 Fantasy (夢幻)</option>
-                  <option value="wireframe">📐 Wireframe (線框)</option>
-                  <option value="black">🖤 Black (純黑)</option>
-                  <option value="luxury">💎 Luxury (奢華金)</option>
-                  <option value="dracula">🧛 Dracula (吸血鬼)</option>
-                  <option value="cmyk">🖨️ CMYK (印刷色)</option>
-                  <option value="autumn">🍁 Autumn (秋天)</option>
-                  <option value="business">💼 Business (沉穩商務)</option>
-                  <option value="acid">🧪 Acid (螢光黃)</option>
-                  <option value="lemonade">🍋 Lemonade (檸檬水)</option>
-                  <option value="night">🌃 Night (深夜藍)</option>
-                  <option value="coffee">☕ Coffee (咖啡)</option>
-                  <option value="winter">❄️ Winter (冰雪藍)</option>
-                  <option value="dim">🌁 Dim (暮光灰)</option>
-                  <option value="nord">❄️ Nord (極地)</option>
-                  <option value="sunset">🌅 Sunset (日落)</option>
-                </select>
-                <span className="label-text-alt mt-1 text-base-content/40 font-semibold">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dark">🌙 Dark (暗黑)</SelectItem>
+                    <SelectItem value="light">☀️ Light (明亮)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground font-medium">
                   {t("settings_theme_desc")}
-                </span>
+                </p>
               </div>
 
               {/* Setting: Language selection */}
-              <div className="form-control w-full border-t border-base-100 pt-4">
-                <label className="label">
-                  <span className="label-text font-black text-base-content/85">{t("settings_lang")}</span>
+              <div className="space-y-2 border-t border-border pt-4">
+                <label className="text-sm font-extrabold text-foreground block">
+                  {t("settings_lang")}
                 </label>
-                <select
-                  className="select select-bordered font-bold focus:outline-none"
+                <Select
                   value={settings.language || "zh-TW"}
-                  onChange={(e) => {
-                    const newLang = e.target.value;
+                  onValueChange={(val) => {
+                    const newLang = val;
                     updateSettings({ language: newLang });
                     triggerAutoSaveToast();
                   }}
                 >
-                  <option value="zh-TW">繁體中文 (Traditional Chinese)</option>
-                  <option value="zh-CN">简体中文 (Simplified Chinese)</option>
-                  <option value="en">English (English)</option>
-                  <option value="ja">日本語 (Japanese)</option>
-                </select>
-                <span className="label-text-alt mt-1.5 text-base-content/40 font-semibold">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zh-TW">繁體中文 (Traditional Chinese)</SelectItem>
+                    <SelectItem value="zh-CN">简体中文 (Simplified Chinese)</SelectItem>
+                    <SelectItem value="en">English (English)</SelectItem>
+                    <SelectItem value="ja">日本語 (Japanese)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground font-medium">
                   {t("settings_lang_desc")}
-                </span>
+                </p>
               </div>
 
-            </div>
-          </div>
+              {/* Setting: Generate Log File (Troubleshooting) */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5 pr-4">
+                    <label className="text-sm font-extrabold text-foreground flex items-center gap-2 cursor-pointer">
+                      <Bug className="w-4 h-4 text-primary" />
+                      <span>{t("settings_logging")}</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {t("settings_logging_desc")}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={Boolean(settings.enableLogging)}
+                    onCheckedChange={handleLoggingToggle}
+                  />
+                </div>
+
+                {Boolean(settings.enableLogging) && (
+                  <div className="flex items-center justify-between bg-muted/40 p-3 rounded-xl border border-border mt-2 animate-fade-in">
+                    <div className="flex items-center gap-2 text-xs font-mono truncate text-muted-foreground">
+                      <FileText className="w-4 h-4 text-primary shrink-0" />
+                      <span className="truncate">
+                        {lastLogPath ? lastLogPath.split("/").pop() : "即将写入日志至下载目录..."}
+                      </span>
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => handleGenerateLog()}
+                      className="font-bold shrink-0 ml-2"
+                    >
+                      {t("settings_logging_btn")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+            </CardContent>
+          </Card>
 
           {/* Card: Cloudflare Bypass Check */}
-          <div className="card bg-base-300 border border-base-100 shadow-xl rounded-2xl">
-            <div className="card-body gap-4">
-              <h3 className="card-title text-base font-extrabold border-b border-base-100 pb-2 text-error flex items-center gap-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-extrabold text-primary border-b border-border pb-2 flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5" />
                 {t("settings_cf")}
-              </h3>
+              </CardTitle>
+            </CardHeader>
 
-              <p className="text-xs text-base-content/60 font-semibold">
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground font-semibold">
                 {t("settings_cf_desc")}
               </p>
 
-              <div className="overflow-x-auto w-full border border-base-100 rounded-xl mt-2 bg-base-200/30">
-                <table className="table table-sm w-full font-bold">
-                  <thead>
-                    <tr className="border-b border-base-100 text-base-content/60">
-                      <th>Site</th>
-                      <th>Domain</th>
-                      <th>Token Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="border border-border rounded-xl overflow-hidden bg-muted/20">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Site</TableHead>
+                      <TableHead>Domain</TableHead>
+                      <TableHead>Token Status</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {[
                       { name: "JableTV", domain: "jable.tv", url: "https://jable.tv/" },
                       { name: "MissAV", domain: "missav.ws", url: "https://missav.ws/" },
@@ -307,52 +418,55 @@ export const Settings: React.FC = () => {
                       const cfg = settings.cfConfigs?.[site.domain];
                       const hasCookie = !!cfg?.cfClearance;
                       return (
-                        <tr key={site.domain} className="border-b border-base-100/50">
-                          <td className="font-extrabold text-sm">{site.name}</td>
-                          <td className="text-xs font-mono">{site.domain}</td>
-                          <td>
+                        <TableRow key={site.domain}>
+                          <TableCell className="font-extrabold text-sm">{site.name}</TableCell>
+                          <TableCell className="text-xs font-mono">{site.domain}</TableCell>
+                          <TableCell>
                             {hasCookie ? (
-                              <span className="badge badge-success text-white badge-sm font-semibold truncate max-w-[150px]" title={cfg.cfClearance}>
+                              <Badge variant="success" className="font-semibold text-[11px] truncate max-w-[150px]" title={cfg.cfClearance}>
                                 Authorized ({cfg.cfClearance.substring(0, 10)}...)
-                              </span>
+                              </Badge>
                             ) : (
-                              <span className="badge badge-ghost text-base-content/40 badge-sm font-semibold">Unauthorized</span>
+                              <Badge variant="secondary" className="font-semibold text-[11px]">Unauthorized</Badge>
                             )}
-                          </td>
-                          <td>
-                            <div className="flex gap-2">
-                              <button
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="xs"
                                 onClick={() => handleAutoVerify(site.url)}
-                                className="btn btn-xs btn-error text-white font-extrabold rounded-lg"
+                                className="font-extrabold"
                               >
                                 {t("settings_cf_verify")}
-                              </button>
+                              </Button>
                               {hasCookie && (
-                                <button
+                                <Button
+                                  size="xs"
+                                  variant="outline"
                                   onClick={() => handleClearVerify(site.domain)}
-                                  className="btn btn-xs btn-outline btn-ghost font-bold rounded-lg"
+                                  className="font-bold"
                                 >
                                   {t("settings_cf_clear")}
-                                </button>
+                                </Button>
                               )}
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
-              <div className="flex items-start gap-3 bg-base-200/50 p-4 rounded-xl border border-base-100 mt-2">
-                <Info className="w-5 h-5 text-error shrink-0 mt-0.5" />
-                <div className="text-xs text-base-content/60 font-semibold space-y-1">
+              <div className="flex items-start gap-3 bg-muted/30 p-4 rounded-xl border border-border">
+                <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="text-xs text-muted-foreground font-medium space-y-1">
                   <p>Client engine emulates Chrome 120 client fingerprints to bypass Cloudflare protection.</p>
                   <p>Click "Verify" to open target check window, complete Turnstile challenge inside the window. The window closes automatically once verification is successful.</p>
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
         </div>
       </main>

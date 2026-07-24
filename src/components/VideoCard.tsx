@@ -3,6 +3,8 @@ import { Check } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
 import { useDownloadStore } from "../store/useDownloadStore";
+import { Badge } from "./ui/badge";
+import { cn } from "../lib/utils";
 
 export interface VideoItem {
   title: String;
@@ -47,7 +49,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       // Set to direct previewUrl initially for zero-delay streaming
       setVideoSrc(previewUrlStr);
 
-      // Fetch blob into memory cache asynchronously via Tauri backend (bypassing 403 Forbidden referrer checks)
+      // Fetch blob into memory cache asynchronously via Tauri backend
       if (!fetchingPreviews.has(previewUrlStr)) {
         fetchingPreviews.add(previewUrlStr);
         invoke<number[]>("fetch_preview_video", { req: { site: activeSite, url: previewUrlStr } })
@@ -90,14 +92,15 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       onMouseLeave={handleMouseLeave}
       onDoubleClick={onDoubleClick}
       onClick={onToggle}
-      className={`card bg-base-300 shadow-xl overflow-hidden border-2 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl group ${
+      className={cn(
+        "bg-card text-card-foreground rounded-xl border shadow-sm overflow-hidden cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg group flex flex-col justify-between",
         isSelected
-          ? "border-error bg-error/5 shadow-error/10"
-          : "border-base-100 hover:border-error/50"
-      }`}
+          ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+          : "border-border hover:border-primary/50"
+      )}
     >
       {/* Thumbnail Frame */}
-      <figure className="relative aspect-video bg-black overflow-hidden select-none">
+      <div className="relative aspect-video bg-black overflow-hidden select-none shrink-0">
         <img
           src={video.image_url as string}
           alt={video.title as string}
@@ -121,16 +124,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
         {/* Preview Playing Badge */}
         {isHovered && previewUrlStr && (
-          <span className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded bg-error/90 backdrop-blur text-white text-[10px] font-black tracking-wider uppercase shadow flex items-center gap-1.5 animate-pulse">
+          <Badge className="absolute top-2 left-2 z-20 bg-primary/90 text-white text-[10px] font-black tracking-wider uppercase shadow flex items-center gap-1.5 animate-pulse border-none">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
             PREVIEW
-          </span>
+          </Badge>
         )}
 
         {/* Selected Overlay Checkmark */}
         {isSelected && (
-          <div className="absolute inset-0 bg-error/25 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 z-20">
-            <div className="w-12 h-12 rounded-full bg-error text-white flex items-center justify-center shadow-lg transform scale-110 animate-fade-in">
+          <div className="absolute inset-0 bg-primary/25 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 z-20">
+            <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg transform scale-110 animate-fade-in">
               <Check className="w-6 h-6 stroke-[3]" />
             </div>
           </div>
@@ -138,25 +141,26 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
         {/* Duration Label */}
         {video.duration && (
-          <span className="absolute bottom-2 right-2 z-20 px-2 py-0.5 rounded bg-black/80 backdrop-blur text-white text-[11px] font-extrabold tracking-wider font-mono">
+          <span className="absolute bottom-2 right-2 z-20 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur text-white text-[11px] font-extrabold tracking-wider font-mono">
             {video.duration}
           </span>
         )}
-      </figure>
+      </div>
 
       {/* Video Content */}
-      <div className="p-4 flex flex-col justify-between h-[100px]">
+      <div className="p-4 flex flex-col justify-between flex-1 min-h-[96px]">
         <h3
-          className={`font-semibold text-sm line-clamp-2 transition-colors duration-200 ${
-            isSelected ? "text-error" : "text-base-content group-hover:text-error"
-          }`}
+          className={cn(
+            "font-semibold text-sm line-clamp-2 transition-colors duration-200 leading-snug",
+            isSelected ? "text-primary font-bold" : "text-foreground group-hover:text-primary"
+          )}
           title={video.title as string}
         >
           {video.title}
         </h3>
-        
+
         {/* Source indicator */}
-        <div className="flex items-center justify-between text-[11px] text-base-content/40 font-bold uppercase tracking-wider select-none mt-2">
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-bold uppercase tracking-wider select-none mt-3 pt-2 border-t border-border/50">
           <span>
             {video.url.includes("missav")
               ? "MissAV"
@@ -164,7 +168,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               ? "SupJav"
               : "JableTV"}
           </span>
-          <span className="hover:text-error transition-colors">
+          <span className="hover:text-primary transition-colors">
             {t("browse_double_click_watch")}
           </span>
         </div>

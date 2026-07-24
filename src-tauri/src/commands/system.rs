@@ -133,3 +133,33 @@ pub async fn get_disk_space_info(
         }
     }
 }
+
+#[tauri::command]
+pub async fn generate_debug_log(
+    app_handle: tauri::AppHandle,
+    save_dir: String,
+    log_content: String,
+) -> Result<String, String> {
+    let mut resolved = std::path::PathBuf::from(&save_dir);
+    if save_dir == "download" {
+        if let Ok(download_path) = app_handle.path().download_dir() {
+            resolved = download_path.join("avdl");
+        }
+    }
+
+    if !resolved.exists() {
+        let _ = std::fs::create_dir_all(&resolved).map_err(|e| e.to_string())?;
+    }
+
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let file_name = format!("avdl_debug_{}.log", secs);
+    let log_path = resolved.join(&file_name);
+
+    std::fs::write(&log_path, log_content).map_err(|e| e.to_string())?;
+
+    Ok(log_path.to_string_lossy().to_string())
+}
+

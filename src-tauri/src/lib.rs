@@ -13,7 +13,7 @@ use commands::downloader::{
 use commands::media::fetch_preview_video;
 use commands::scraper::{fetch_video_list, get_categories, get_sidebar_tags, search_videos};
 use commands::system::{
-    get_disk_space_info, get_folder_size, open_download_folder, select_directory,
+    generate_debug_log, get_disk_space_info, get_folder_size, open_download_folder, select_directory,
 };
 use commands::AppState;
 use wreq_util::Emulation;
@@ -53,6 +53,7 @@ pub fn run() {
             get_disk_space_info,
             sync_cf_configs,
             start_cf_verifier,
+            generate_debug_log,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

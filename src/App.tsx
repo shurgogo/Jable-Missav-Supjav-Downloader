@@ -20,7 +20,11 @@ function App() {
   const theme = settings.theme;
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme || "dark");
+    if (theme === "light") {
+      document.documentElement.classList.remove("dark");
+    } else {
+      document.documentElement.classList.add("dark");
+    }
   }, [theme]);
 
   useEffect(() => {
@@ -70,7 +74,7 @@ function App() {
   }, [setCfConfig]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-base-100 font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
       <ToastContainer />
       {/* Sidebar Navigation */}
       <Sidebar
@@ -80,11 +84,10 @@ function App() {
       />
 
       {/* Main Pages Router */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
         {activeTab === "browse" && <Browse />}
         {activeTab === "queue" && <Queue />}
         {activeTab === "stats" && <StatsPage />}
-
         {activeTab === "settings" && <Settings />}
       </div>
     </div>
