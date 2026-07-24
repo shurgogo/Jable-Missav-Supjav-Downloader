@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
+import { useDownloadStore } from "../store/useDownloadStore";
 
 export interface VideoItem {
   title: String;
@@ -29,6 +30,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   onDoubleClick,
 }) => {
   const { t } = useTranslation();
+  const activeSite = useDownloadStore((state) => state.activeSite);
   const [isHovered, setIsHovered] = useState(false);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,7 +50,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       // Fetch blob into memory cache asynchronously via Tauri backend (bypassing 403 Forbidden referrer checks)
       if (!fetchingPreviews.has(previewUrlStr)) {
         fetchingPreviews.add(previewUrlStr);
-        invoke<number[]>("fetch_preview_video", { url: previewUrlStr })
+        invoke<number[]>("fetch_preview_video", { req: { site: activeSite, url: previewUrlStr } })
           .then((bytes) => {
             const blob = new Blob([new Uint8Array(bytes)], { type: "video/mp4" });
             const objectUrl = URL.createObjectURL(blob);

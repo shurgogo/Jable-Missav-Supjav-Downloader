@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Search, Loader2, Compass, CheckSquare, Square, Download, Tag, ShieldCheck, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { VideoCard, VideoItem } from "../components/VideoCard";
-import { useDownloadStore } from "../store/useDownloadStore";
+import { useDownloadStore, Site } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
 import { parseAppError } from "../utils/error";
 import { useTranslation, translateCategory, translateTagGroup, translateTagName } from "../i18n";
@@ -48,7 +48,7 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
   const setSite = setActiveSite;
 
   const isVerified = useMemo(() => {
-    const domainKey = site === "jable" ? "jable" : site === "supjav" ? "supjav" : "missav";
+    const domainKey = site;
     return Object.entries(settings.cfConfigs || {}).some(
       ([domain, cfg]) =>
         domain.includes(domainKey) &&
@@ -73,41 +73,25 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
 
       try {
         let finalCats: Category[] = [];
+        const getLang = () => {
+          if (site === Site.Jable) return settings.language === "en" ? "en" : settings.language === "ja" ? "jp" : "zh";
+          if (site === Site.Missav) return settings.language === "zh-CN" ? "cn" : settings.language === "en" ? "en" : settings.language === "ja" ? "ja" : "";
+          return settings.language === "en" ? "" : settings.language === "ja" ? "ja" : "zh";
+        };
+        const lang = getLang();
 
-        if (site === "jable") {
-          const j_lang = settings.language === "en" ? "en" : settings.language === "ja" ? "jp" : "zh";
-          const cats: Category[] = await invoke("get_jable_categories", { lang: j_lang });
-          finalCats = cats;
-          if (cats.length > 0) {
-            setActiveUrl(cats[0].url);
-          }
-
-          const tags: Record<string, TagItem[]> = await invoke("get_jable_sidebar_tags");
-          setSidebarTags(tags);
-          setSortBy("post_date");
-        } else if (site === "missav") {
-          const m_lang = settings.language === "zh-CN" ? "cn" : settings.language === "en" ? "en" : settings.language === "ja" ? "ja" : "";
-          const cats: Category[] = await invoke("get_missav_categories", { lang: m_lang });
-          finalCats = cats;
-          if (cats.length > 0) {
-            setActiveUrl(cats[0].url);
-          }
-          setSidebarTags({});
-          setSortBy("");
-        } else {
-          // SupJav
-          const s_lang = settings.language === "en" ? "" : settings.language === "ja" ? "ja" : "zh";
-          const cats: Category[] = await invoke("get_supjav_categories", { lang: s_lang });
-          finalCats = cats;
-          if (cats.length > 0) {
-            setActiveUrl(cats[0].url);
-          }
-          setSidebarTags({});
-          setSortBy("");
+        const cats: Category[] = await invoke("get_categories", { req: { site, lang } });
+        finalCats = cats;
+        if (cats.length > 0) {
+          setActiveUrl(cats[0].url);
         }
 
+        const tags: Record<string, TagItem[]> = await invoke("get_sidebar_tags", { req: { site } });
+        setSidebarTags(tags);
+        setSortBy(site === Site.Jable ? "post_date" : "");
+
         // Translate the category names using t()
-        const translatedCats = finalCats.map(cat => ({
+        const translatedCats = finalCats.map((cat: Category) => ({
           ...cat,
           name: translateCategory(cat.name, settings.language || "zh-TW", t)
         }));
@@ -142,9 +126,9 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
 
     // Guard: Prevent mismatched url requests during tab transitions
     if (activeUrl) {
-      if (site === "jable" && !activeUrl.includes("jable.tv")) return;
-      if (site === "missav" && !activeUrl.includes("missav")) return;
-      if (site === "supjav" && !activeUrl.includes("supjav")) return;
+      if (site === Site.Jable && !activeUrl.includes("jable.tv")) return;
+      if (site === Site.Missav && !activeUrl.includes("missav")) return;
+      if (site === Site.Supjav && !activeUrl.includes("supjav")) return;
     }
 
     const loadVideos = async () => {
@@ -152,57 +136,33 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
       setError(null);
       try {
         let response: { videos: VideoItem[]; total_pages: number };
+        const getLang = () => {
+          if (site === Site.Jable) return settings.language === "en" ? "en" : settings.language === "ja" ? "jp" : "zh";
+          if (site === Site.Missav) return settings.language === "zh-CN" ? "cn" : settings.language === "en" ? "en" : settings.language === "ja" ? "ja" : "";
+          return settings.language === "en" ? "" : settings.language === "ja" ? "ja" : "zh";
+        };
+        const lang = getLang();
 
-        if (site === "jable") {
-          const j_lang = settings.language === "en" ? "en" : settings.language === "ja" ? "jp" : "zh";
-          if (searchKeyword) {
-            response = await invoke("search_jable", {
+        if (searchKeyword) {
+          response = await invoke("search_videos", {
+            req: {
+              site,
               keyword: searchKeyword,
               page,
               sortBy: sortBy || null,
-              lang: j_lang,
-            });
-          } else {
-            response = await invoke("fetch_jable_list", {
-              url: activeUrl,
-              page,
-              sortBy: sortBy || null,
-              lang: j_lang,
-            });
-          }
-        } else if (site === "missav") {
-          if (searchKeyword) {
-            const m_lang = settings.language === "zh-CN" ? "cn" : settings.language === "en" ? "en" : settings.language === "ja" ? "ja" : "";
-            response = await invoke("search_missav", {
-              keyword: searchKeyword,
-              page,
-              lang: m_lang,
-            });
-          } else {
-            const m_lang = settings.language === "zh-CN" ? "cn" : settings.language === "en" ? "en" : settings.language === "ja" ? "ja" : "";
-            response = await invoke("fetch_missav_list", {
-              url: activeUrl,
-              page,
-              lang: m_lang,
-            });
-          }
+              lang,
+            },
+          });
         } else {
-          // SupJav
-          if (searchKeyword) {
-            const s_lang = settings.language === "en" ? "" : settings.language === "ja" ? "ja" : "zh";
-            response = await invoke("search_supjav", {
-              keyword: searchKeyword,
-              page,
-              lang: s_lang,
-            });
-          } else {
-            const s_lang = settings.language === "en" ? "" : settings.language === "ja" ? "ja" : "zh";
-            response = await invoke("fetch_supjav_list", {
+          response = await invoke("fetch_video_list", {
+            req: {
+              site,
               url: activeUrl,
               page,
-              lang: s_lang,
-            });
-          }
+              sortBy: sortBy || null,
+              lang,
+            },
+          });
         }
 
         setVideos(response.videos);
@@ -236,9 +196,9 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
   // Cloudflare bypass handler
   const handleVerifyBypass = async () => {
     let targetUrl = "https://supjav.com/";
-    if (site === "missav") {
+    if (site === Site.Missav) {
       targetUrl = "https://missav.ws/";
-    } else if (site === "jable") {
+    } else if (site === Site.Jable) {
       targetUrl = "https://jable.tv/";
     }
 
@@ -260,9 +220,9 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
       console.log(`[Browse] Verification success event received for: ${domain}`);
       // Refresh current page if domain matches active site
       if (
-        (site === "supjav" && domain.includes("supjav")) ||
-        (site === "missav" && domain.includes("missav")) ||
-        (site === "jable" && domain.includes("jable"))
+        (site === Site.Supjav && domain.includes("supjav")) ||
+        (site === Site.Missav && domain.includes("missav")) ||
+        (site === Site.Jable && domain.includes("jable"))
       ) {
         // Trigger list reload by forcing a state reset or refetch
         setActiveUrl((prev) => {
@@ -389,13 +349,16 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
     const resolution = settings.resolution;
     showSuccess(`已成功加入 ${selectedVideos.length} 个影片到下載隊列`);
     for (const url of selectedVideos) {
-      addTask(url);
+      addTask(url, undefined, undefined, site);
       try {
         await invoke("start_download", {
-          url,
-          saveDir,
-          maxConcurrent,
-          resolution,
+          req: {
+            site,
+            url,
+            saveDir,
+            maxConcurrent,
+            resolution,
+          },
         });
       } catch (err) {
         console.error(`Failed to start download for ${url}:`, err);
@@ -435,31 +398,31 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
               <div className="flex items-center gap-3">
                 <Compass className="w-6 h-6 text-error shrink-0" />
                 <h2 className="text-xl font-black hidden sm:block">
-                  {site === "jable" ? "JableTV" : site === "missav" ? "MissAV" : "SupJav"}
+                  {site === Site.Jable ? "JableTV" : site === Site.Missav ? "MissAV" : "SupJav"}
                 </h2>
               </div>
 
               {/* Site Selector tab block */}
               <div className="join bg-base-300 p-0.5 rounded-xl shadow-inner border border-base-200">
                 <button
-                  onClick={() => setSite("jable")}
-                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === "jable" ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
+                  onClick={() => setSite(Site.Jable)}
+                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === Site.Jable ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
                     }`}
                 >
                   <span className="hidden sm:inline">JableTV</span>
                   <span className="sm:hidden">J</span>
                 </button>
                 <button
-                  onClick={() => setSite("missav")}
-                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === "missav" ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
+                  onClick={() => setSite(Site.Missav)}
+                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === Site.Missav ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
                     }`}
                 >
                   <span className="hidden sm:inline">MissAV</span>
                   <span className="sm:hidden">M</span>
                 </button>
                 <button
-                  onClick={() => setSite("supjav")}
-                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === "supjav" ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
+                  onClick={() => setSite(Site.Supjav)}
+                  className={`btn btn-xs rounded-lg font-black px-3 sm:px-4 h-7 min-h-0 border-none transition-all duration-200 ${site === Site.Supjav ? "bg-error text-white shadow-sm" : "btn-ghost text-base-content/60"
                     }`}
                 >
                   <span className="hidden sm:inline">SupJav</span>
@@ -469,11 +432,10 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
 
               <button
                 onClick={handleVerifyBypass}
-                className={`btn btn-xs btn-outline rounded-xl font-bold px-2.5 sm:px-3 h-7 min-h-0 text-[11px] flex items-center gap-1 border-dashed transition-all duration-300 shadow-sm ${
-                  isVerified
+                className={`btn btn-xs btn-outline rounded-xl font-bold px-2.5 sm:px-3 h-7 min-h-0 text-[11px] flex items-center gap-1 border-dashed transition-all duration-300 shadow-sm ${isVerified
                     ? "btn-success text-success hover:bg-success hover:text-white"
                     : "btn-error hover:bg-error hover:text-white"
-                }`}
+                  }`}
                 title={t("browse_verify_tooltip")}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -539,7 +501,7 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
               )}
 
               {/* Tag Selector Trigger Label (only for Jable) */}
-              {site === "jable" && (
+              {site === Site.Jable && (
                 <label htmlFor="tag-drawer" className="btn btn-sm btn-outline btn-error font-black gap-1.5 rounded-lg cursor-pointer px-2.5 text-xs">
                   <Tag className="w-3.5 h-3.5" />
                   <span>{t("browse_tag_filter")}</span>
@@ -548,7 +510,7 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
               )}
 
               {/* Sorting Selection dropdown (only for Jable) */}
-              {site === "jable" && (
+              {site === Site.Jable && (
                 <div className="dropdown dropdown-bottom">
                   <div tabIndex={0} role="button" className="btn btn-sm btn-outline btn-error font-black gap-1.5 rounded-lg cursor-pointer px-2.5 text-xs">
                     <span>

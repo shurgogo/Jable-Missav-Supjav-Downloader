@@ -1,45 +1,36 @@
-use crate::scraper::{Category, TagItem, VideoInfo, VideoListResponse};
+use crate::scraper::{
+    get_accept_language_header, Category, FetchOptions, TagItem, VideoInfo, VideoListResponse,
+};
 use dom_query::Document;
 use std::collections::HashMap;
 use std::error::Error;
 use wreq::Client;
 
-pub fn with_lang(url: &str, lang: &str) -> String {
-    if lang.is_empty() {
-        return url.to_string();
-    }
-    if url.contains("lang=") {
-        return url.to_string();
-    }
-    let mut url_parsed = match url::Url::parse(url) {
-        Ok(u) => u,
-        Err(_) => return url.to_string(),
-    };
-    url_parsed.query_pairs_mut().append_pair("lang", lang);
-    url_parsed.to_string()
-}
-
 // Fetch dynamic categories merged with homepage sections
-pub async fn get_categories(client: &Client, lang: &str) -> Vec<Category> {
+pub async fn get_categories(client: &Client, _lang: &str) -> Vec<Category> {
     let mut cats = vec![
         Category {
             name: "最近更新".to_string(),
-            url: with_lang("https://jable.tv/latest-updates/", lang),
+            url: "https://jable.tv/latest-updates/".to_string(),
         },
         Category {
             name: "熱門影片".to_string(),
-            url: with_lang("https://jable.tv/hot/", lang),
+            url: "https://jable.tv/hot/".to_string(),
         },
         Category {
             name: "新片上架".to_string(),
-            url: with_lang("https://jable.tv/new-release/", lang),
+            url: "https://jable.tv/new-release/".to_string(),
         },
     ];
 
-    let fetch_url = with_lang("https://jable.tv/categories/", lang);
+    let fetch_url = "https://jable.tv/categories/";
     println!("[Scraper] Fetching dynamic categories from: {}", fetch_url);
-    let resp = match client.get(&fetch_url)
-        .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+    let resp = match client
+        .get(fetch_url)
+        .header(
+            "accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        )
         .header("accept-language", "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7")
         .header("referer", "https://jable.tv/")
         .send()
@@ -78,7 +69,7 @@ pub async fn get_categories(client: &Client, lang: &str) -> Vec<Category> {
             if !name_clean.is_empty() {
                 cats.push(Category {
                     name: name_clean,
-                    url: with_lang(&href, lang),
+                    url: href,
                 });
             }
         }
@@ -262,37 +253,33 @@ pub fn get_sidebar_tags() -> HashMap<String, Vec<TagItem>> {
 }
 
 // Fetch list with pagination and sorting
-pub async fn fetch_list(
-    client: &Client,
-    base_url: &str,
-    page: usize,
-    sort_by: Option<String>,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
-) -> Result<VideoListResponse, Box<dyn Error>> {
-    let mut url_parsed = url::Url::parse(base_url)?;
+pub async fn fetch_list(opts: &FetchOptions<'_>) -> Result<VideoListResponse, Box<dyn Error>> {
+    let page_str = opts.page.to_string();
+    let mut params = vec![("from", page_str.as_str())];
 
-    // Set "from" query parameter (JableTV pagination is 1-indexed)
-    url_parsed
-        .query_pairs_mut()
-        .append_pair("from", &page.to_string());
-
-    if let Some(ref sort) = sort_by {
+    if let Some(sort) = opts.sort_by {
         if !sort.is_empty() {
-            url_parsed.query_pairs_mut().append_pair("sort_by", sort);
+            params.push(("sort_by", sort));
         }
     }
+    if !opts.lang.is_empty() {
+        params.push(("lang", opts.lang));
+    }
 
-    let final_url = url_parsed.to_string();
-    println!("[Scraper] Fetching list from final URL: {}", final_url);
+    let final_url = crate::scraper::append_query_params(opts.target, &params);
+    println!("[Scraper] Fetching list target: {}", final_url);
 
-    let mut req = client.get(&final_url)
-        .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-        .header("accept-language", "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7")
+    let mut req = opts
+        .client
+        .get(&final_url)
+        .header(
+            "accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        )
+        .header("accept-language", get_accept_language_header(opts.lang))
         .header("referer", "https://jable.tv/");
 
-    req = crate::scraper::apply_cf_headers(req, cf_clearance, user_agent);
+    req = crate::scraper::apply_cf_headers(req, opts.cf_clearance, opts.user_agent);
     let resp = req.send().await?;
 
     let status = resp.status();
@@ -364,8 +351,8 @@ pub async fn fetch_list(
         );
     }
 
-    if total_pages < page {
-        total_pages = page;
+    if total_pages < opts.page {
+        total_pages = opts.page;
     }
 
     let mut videos = Vec::new();
@@ -373,28 +360,35 @@ pub async fn fetch_list(
     println!("[Scraper] Found {} video cards", cards.length());
 
     for node in cards.iter() {
-        let detail = node.select("div.detail");
-        let tag_a = detail.select("h6 a");
-
-        let url_val = tag_a
-            .attr("href")
-            .map(|v| v.to_string())
-            .unwrap_or_default();
-        let title_val = tag_a.text().to_string().trim().to_string();
-
-        if url_val.is_empty() || title_val.is_empty() {
+        let link_node = node.select("a[href*=\"/videos/\"]");
+        if link_node.length() == 0 {
             continue;
         }
 
-        let img = node.select("img");
-        let mut img_url = img
+        let url_val = link_node.attr("href").unwrap_or_default().to_string();
+        if url_val.is_empty() {
+            continue;
+        }
+
+        let img = node.select("div.img-box img");
+        let img_url = img
             .attr("data-src")
             .or_else(|| img.attr("src"))
-            .map(|v| v.to_string())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .to_string();
 
-        if !img_url.is_empty() && !img_url.starts_with("http") {
-            img_url = format!("https://jable.tv{}", img_url);
+        let title_node = node.select("div.detail h6.title a, div.detail a, h6.title a, h6 a");
+        let mut title_val = title_node.text().to_string().trim().to_string();
+        if title_val.is_empty() {
+            title_val = img.attr("alt").unwrap_or_default().to_string().trim().to_string();
+        }
+        if title_val.is_empty() {
+            title_val = img.attr("title").unwrap_or_default().to_string().trim().to_string();
+        }
+
+        if title_val.is_empty() {
+            println!("[Jable Scraper Warning] Empty title for card url: {}", url_val);
+            continue;
         }
 
         let mut preview_url = img
@@ -422,9 +416,14 @@ pub async fn fetch_list(
             Some(duration_text)
         };
 
+        println!(
+            "[Jable Scraper Debug] card title: '{}', url: '{}'",
+            title_val, url_val
+        );
+
         videos.push(VideoInfo {
             title: title_val,
-            url: with_lang(&url_val, lang),
+            url: url_val,
             image_url: img_url,
             duration: duration_opt,
             preview_url,
@@ -437,20 +436,23 @@ pub async fn fetch_list(
     })
 }
 
-pub async fn search_videos(
-    client: &Client,
-    keyword: &str,
-    page: usize,
-    sort_by: Option<String>,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
-) -> Result<VideoListResponse, Box<dyn Error>> {
+pub async fn search_videos(opts: &FetchOptions<'_>) -> Result<VideoListResponse, Box<dyn Error>> {
     let encoded_keyword =
-        url::form_urlencoded::byte_serialize(keyword.as_bytes()).collect::<String>();
-    let base = with_lang(
-        &format!("https://jable.tv/search/?q={}", encoded_keyword),
-        lang,
-    );
-    fetch_list(client, &base, page, sort_by, lang, cf_clearance, user_agent).await
+        url::form_urlencoded::byte_serialize(opts.target.as_bytes()).collect::<String>();
+    let base = format!("https://jable.tv/search/?q={}", encoded_keyword);
+    let search_opts = FetchOptions {
+        client: opts.client,
+        target: &base,
+        page: opts.page,
+        sort_by: opts.sort_by,
+        lang: opts.lang,
+        cf_clearance: opts.cf_clearance,
+        user_agent: opts.user_agent,
+    };
+    fetch_list(&search_opts).await
+}
+
+pub async fn discover_working_domain(client: &wreq::Client) -> String {
+    let mirrors = crate::scraper::get_mirror_domains(crate::scraper::Site::Jable);
+    crate::scraper::discover_working_domain(client, mirrors).await
 }

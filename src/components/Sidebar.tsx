@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               AVDL
             </h1>
             <span className="text-[10px] text-error font-semibold tracking-wider uppercase block">
-              v0.1.1
+              v0.1.2
             </span>
           </div>
         )}

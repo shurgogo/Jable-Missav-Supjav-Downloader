@@ -12,7 +12,7 @@ import {
   X,
   CheckCircle2,
 } from "lucide-react";
-import { useDownloadStore } from "../store/useDownloadStore";
+import { useDownloadStore, Site } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
 import { useTranslation } from "../i18n";
 
@@ -64,6 +64,7 @@ export const Queue: React.FC = () => {
     const scanUnfinished = async () => {
       try {
         const list: Array<{
+          site?: Site;
           url: string;
           title: string;
           save_dir: string;
@@ -79,6 +80,7 @@ export const Queue: React.FC = () => {
           if (!tasks[item.url] && !completedTasks[item.url]) {
             // Recover as a standby (paused) task
             updateTask(item.url, {
+              site: item.site,
               title: item.title,
               index: item.completed_segments,
               total: item.total_segments,
@@ -103,14 +105,19 @@ export const Queue: React.FC = () => {
     }
   };
 
+  const activeSite = useDownloadStore((state) => state.activeSite);
+
   const handleResume = async (url: string) => {
     updateTask(url, { status: "downloading" });
+    const task = tasks[url];
+    const taskSite = task?.site || activeSite;
     const saveDir = settings.downloadFolder;
     const maxConcurrent = settings.maxConcurrent;
     const resolution = settings.resolution;
 
     try {
       await invoke("resume_download", {
+        site: taskSite,
         url,
         saveDir,
         maxConcurrent,

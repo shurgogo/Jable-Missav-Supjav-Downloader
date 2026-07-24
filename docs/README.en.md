@@ -2,46 +2,44 @@
 
 🌐 Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | **English** | [日本語](README.ja.md)
 
-A high-performance desktop video downloader and browser built with Tauri v2, React, and Rust, supporting JableTV, MissAV, and SupJav.
+A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust, supporting JableTV, MissAV, and SupJav.
 
-![Light Theme](../docs/images/preview01.png)
+![Light Mode](../docs/images/preview01.png)
 
-![Dark Theme](../docs/images/preview02.png)
+![Dark Mode](../docs/images/preview02.png)
 
 ---
 
 ## ✨ Features
 
-### 📥 Downloading & File Processing
+### 📥 Download & File Processing
 - ⚡ **M3U8 Segment Download & Decryption**: Supports multi-threaded TS segment concurrent downloading, AES-128-CBC automatic decryption, and breakpoint resume.
-- ⏩ **Faststart Seeking Optimization**: Appends `-movflags +faststart` during MP4 merging to optimize keyframe index positioning, enabling instant playback and seeking.
-- 🌊 **Streamtape Progressive Streaming**: Decrypts Streamtape obfuscated scripts and streams data directly to disk.
+- 🌊 **Streamtape Streaming Download**: Decrypts Streamtape obfuscated scripts and uses streaming incremental writes to disk.
 
-### 🛡️ Anti-Crawler & Site Adaptation
-- 🔒 **Cloudflare Verification & Status Perception**: Built-in verification window for retrieving and managing `cf_clearance` cookies; automatically invalidates stale credentials on `403 Forbidden` and prompts for re-verification.
-- 🔄 **MissAV Mirror Auto-Switching**: Automatically detects connection failures and switches to available active mirror domains.
-- 🔗 **Referer Anti-Leech Handling**: Automatically attaches valid `Referer` headers to resolve preview and segment downloading blocks.
-- ⚙️ **SupJav Multi-Server Probing**: Supports `TV` / `FST` / `VOE` / `ST` multi-server probing and automatic failover; strips obfuscated fake PNG headers from TS segments.
-- 🎬 **Short Preview Video Filter**: Calculates total M3U8 duration and automatically skips short preview clips (< 600 seconds) to target full-length video servers.
+### 🛡️ Site Adaptation & Anti-Crawling
+- 🔒 **Cloudflare Verification & Status Perception**: Built-in verification window to obtain and manage Cloudflare credentials, automatically clearing invalid credentials and prompting re-verification.
+- 🔄 **MissAV Mirror Auto-Switching**: Automatically detects connection failures on the primary domain and switches to available mirror domains.
+- ⚙️ **SupJav Multi-Source Processing**: Supports detection and automatic failover across multiple servers (`TV` / `FST` / `VOE` / `ST`); automatically strips disguised PNG image header data from segments.
+- 🎬 **Trailer Auto-Filtering**: Automatically skips short preview videos under 600 seconds and switches to full-length video sources.
 
-### 🎨 Interface & User Experience
-- 📐 **Responsive Fluid Grid**: Uses CSS Grid `auto-fill` (`minmax(240px, 1fr)`) to dynamically adjust layout columns based on window dimensions.
-- 👁️ **Card Hover Video Preview**: Loads video preview clips on hover and renders via in-memory Blob URLs.
-- 📋 **Batch Download Queue & Dual-Section Control**: Divided into "In Progress" and "Completed" sections, featuring compact 2-row item layout with tooltips, select-all / multi-select checkboxes, and batch start, pause, cancel, and clear actions.
-- 🎨 **Multi-Theme Customization Support**: Built-in daisyUI theme palette options (including dark and light modes) with seamless real-time switching.
-- 📊 **Disk Storage Health Analytics**: Displays target storage disk partition capacity, free space, and download ratio.
-- 🌐 **Multi-Language Support**: Full localization for Traditional Chinese, Simplified Chinese, English, and Japanese.
+### 🎨 Interface & Interaction
+- 📐 **Responsive Grid Layout**: Automatically adjusts column count based on window size to prevent cover image stretching on large screens and text compression on small screens.
+- 👁️ **Card Hover Preview**: Loads video preview clips when hovering over cards.
+- 📋 **Batch Task Control & Dual-Section Management**: Provides a 2-row compact layout for the download queue with hover tooltips, supporting select-all, multi-select, and batch start, pause, cancel, and one-click history clearing.
+- 🎨 **Multi-Theme Switching Support**: Built-in multiple theme appearances (including dark mode and light mode), supporting seamless real-time one-click switching.
+- 📊 **Disk Storage Analytics**: Displays the total capacity, remaining available space, and download file usage ratio of the target drive.
+- 🌐 **Multi-Language Support**: Supports Traditional Chinese, Simplified Chinese, English, and Japanese interfaces, as well as multi-language video titles.
 
 ---
 
 ## 🛠️ Tech Stack
 
 - 🖥️ **Desktop Framework**: Tauri v2
-- ⚛️ **Frontend**: React 19, TypeScript, Vite
+- ⚛️ **Frontend Framework**: React 19, TypeScript, Vite
 - 🎨 **UI & Styling**: Tailwind CSS, daisyUI, Lucide React
 - 🐻 **State Management**: Zustand
-- 🦀 **Backend**: Rust
-- 🌐 **Networking & Cryptography**: `reqwest` / `wreq`, `scraper`, `aes` / `cbc`
+- 🦀 **Backend**: Rust(2021)
+- 🌐 **Networking & Decryption**: `reqwest` / `wreq`, `scraper`, `aes` / `cbc`
 - 🎞️ **Video Merging**: FFmpeg (requires `ffmpeg` in system PATH)
 
 ---
@@ -65,22 +63,22 @@ A high-performance desktop video downloader and browser built with Tauri v2, Rea
    npm run tauri dev
    ```
 
-3. **Build Binary / Application**
+3. **Build Executable**
    ```bash
    npm run tauri build
    ```
 
 ---
 
-## 🍎 macOS Usage & Troubleshooting
+## 🍎 macOS Usage Notes & FAQ
 
-When running the compiled `.app` or standalone binary on macOS, please note that the application is an open-source unsigned package. If macOS Gatekeeper blocks execution on first run, execute the following commands in Terminal:
+When running the packaged `.app` or binary file, please note that the software is an open-source unsigned application. If you encounter permission blocks prior to first launch, you can execute the following commands in the terminal to remove macOS quarantine restrictions:
 
 ```bash
-# Clear quarantine attribute for app bundle
+# Remove app bundle quarantine
 xattr -cr /Applications/avdl.app
 
-# Clear quarantine attribute for standalone binary
+# Remove single binary file quarantine
 xattr -cr ./avdl
 ```
 

@@ -1,47 +1,36 @@
+use super::FetchOptions;
 use crate::scraper::{Category, VideoInfo, VideoListResponse};
 use dom_query::Document;
 use std::error::Error;
-use wreq::Client;
 use url::Url;
 
-pub fn with_lang(url: &str, lang: &str) -> String {
-    let clean_lang = lang.trim().trim_matches('/');
-    if clean_lang.is_empty() {
-        return url.to_string();
-    }
-    let root = "https://supjav.com";
-    let prefix = "https://supjav.com/";
-    if url == root || url == prefix {
-        return format!("{}/{}/", root, clean_lang);
-    }
-    if url.starts_with(prefix) {
-        return format!("{}/{}/{}", root, clean_lang, &url[prefix.len()..]);
-    }
-    url.to_string()
-}
-
 pub async fn get_categories(lang: &str) -> Vec<Category> {
+    let clean_lang = lang.trim().trim_matches('/');
+    let prefix = if clean_lang.is_empty() {
+        "https://supjav.com".to_string()
+    } else {
+        format!("https://supjav.com/{}", clean_lang)
+    };
+
     let raw_cats = vec![
-        ("最近更新", "https://supjav.com/"),
-        ("本週熱門", "https://supjav.com/popular?sort=week"),
-        ("本月熱門", "https://supjav.com/popular?sort=month"),
-        ("無碼", "https://supjav.com/category/uncensored-jav"),
-        ("有碼", "https://supjav.com/category/censored-jav"),
-        ("素人", "https://supjav.com/category/amateur"),
-        ("中文字幕", "https://supjav.com/category/chinese-subtitles"),
-        ("英文字幕", "https://supjav.com/category/english-subtitles"),
-        ("破壞版", "https://supjav.com/category/reducing-mosaic"),
+        ("最近更新", format!("{}/", prefix)),
+        ("本週熱門", format!("{}/popular?sort=week", prefix)),
+        ("本月熱門", format!("{}/popular?sort=month", prefix)),
+        ("無碼", format!("{}/category/uncensored-jav", prefix)),
+        ("有碼", format!("{}/category/censored-jav", prefix)),
+        ("素人", format!("{}/category/amateur", prefix)),
+        ("中文字幕", format!("{}/category/chinese-subtitles", prefix)),
+        ("英文字幕", format!("{}/category/english-subtitles", prefix)),
+        ("破壞版", format!("{}/category/reducing-mosaic", prefix)),
     ];
 
-    let mut list = Vec::new();
-    for (name, url) in raw_cats {
-        let mapped_url = with_lang(url, lang);
-        list.push(Category {
+    raw_cats
+        .into_iter()
+        .map(|(name, url)| Category {
             name: name.to_string(),
-            url: mapped_url,
-        });
-    }
-    list
+            url,
+        })
+        .collect()
 }
 
 pub fn build_supjav_page_url(base_url: &str, page: usize) -> String {
@@ -64,25 +53,22 @@ pub fn build_supjav_page_url(base_url: &str, page: usize) -> String {
 }
 
 pub async fn fetch_list(
-    client: &Client,
-    base_url: &str,
-    page: usize,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
+    opts: &FetchOptions<'_>,
 ) -> Result<VideoListResponse, Box<dyn Error>> {
-    println!("[SupJav Scraper] Fetching list from: {}", base_url);
+    println!("[SupJav Scraper] Fetching list from: {}", opts.target);
 
-    let final_url = build_supjav_page_url(base_url, page);
+    let final_url = build_supjav_page_url(opts.target, opts.page);
     println!("[SupJav Scraper] Fetching list from final URL: {}", final_url);
 
-    let accept_lang = crate::scraper::get_accept_language_header(lang);
-    let mut req = client.get(&final_url)
+    let accept_lang = crate::scraper::get_accept_language_header(opts.lang);
+    let mut req = opts
+        .client
+        .get(&final_url)
         .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
         .header("accept-language", accept_lang)
         .header("referer", "https://supjav.com/");
         
-    req = crate::scraper::apply_cf_headers(req, cf_clearance, user_agent);
+    req = crate::scraper::apply_cf_headers(req, opts.cf_clearance, opts.user_agent);
     let resp = req.send().await?;
 
     let status = resp.status();
@@ -125,8 +111,8 @@ pub async fn fetch_list(
         }
     }
     
-    if total_pages < page {
-        total_pages = page;
+    if total_pages < opts.page {
+        total_pages = opts.page;
     }
 
     let mut videos = Vec::new();
@@ -194,15 +180,29 @@ pub async fn fetch_list(
 }
 
 pub async fn search_videos(
-    client: &Client,
-    keyword: &str,
-    page: usize,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
+    opts: &FetchOptions<'_>,
 ) -> Result<VideoListResponse, Box<dyn Error>> {
-    let encoded_keyword = url::form_urlencoded::byte_serialize(keyword.as_bytes()).collect::<String>();
-    let base = with_lang("https://supjav.com/", lang);
+    let encoded_keyword = url::form_urlencoded::byte_serialize(opts.target.as_bytes()).collect::<String>();
+    let clean_lang = opts.lang.trim().trim_matches('/');
+    let base = if clean_lang.is_empty() {
+        "https://supjav.com/".to_string()
+    } else {
+        format!("https://supjav.com/{}/", clean_lang)
+    };
     let url = format!("{}?s={}", base, encoded_keyword);
-    fetch_list(client, &url, page, lang, cf_clearance, user_agent).await
+    let search_opts = FetchOptions {
+        client: opts.client,
+        target: &url,
+        page: opts.page,
+        sort_by: opts.sort_by,
+        lang: opts.lang,
+        cf_clearance: opts.cf_clearance,
+        user_agent: opts.user_agent,
+    };
+    fetch_list(&search_opts).await
+}
+
+pub async fn discover_working_domain(client: &wreq::Client) -> String {
+    let mirrors = crate::scraper::get_mirror_domains(crate::scraper::Site::Supjav);
+    crate::scraper::discover_working_domain(client, mirrors).await
 }

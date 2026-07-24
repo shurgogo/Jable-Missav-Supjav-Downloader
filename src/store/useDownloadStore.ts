@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface TaskInfo {
+  site?: Site;
   title: string;
   index: number;
   total: number;
@@ -18,20 +19,26 @@ export interface AppSettings {
   language: string;
 }
 
+export enum Site {
+  Jable = "jable",
+  Missav = "missav",
+  Supjav = "supjav",
+}
+
 interface DownloadState {
   selectedVideos: string[];
   tasks: Record<string, TaskInfo>;
   completedTasks: Record<string, TaskInfo>;
   settings: AppSettings;
-  activeSite: "jable" | "missav" | "supjav";
+  activeSite: Site;
   toggleSelectVideo: (url: string) => void;
   clearSelection: () => void;
-  addTask: (url: string, title?: string, status?: string) => void;
+  addTask: (url: string, title?: string, status?: string, site?: Site) => void;
   updateTask: (url: string, taskUpdate: Partial<TaskInfo>) => void;
   removeTask: (url: string) => void;
   clearCompletedTasks: () => void;
   updateSettings: (settingsUpdate: Partial<AppSettings>) => void;
-  setActiveSite: (site: "jable" | "missav" | "supjav") => void;
+  setActiveSite: (site: Site) => void;
   setCfConfig: (domain: string, cfClearance: string, userAgent: string) => void;
   removeCfConfig: (domainOrSite: string) => void;
 }
@@ -50,7 +57,7 @@ export const useDownloadStore = create<DownloadState>()(
         cfConfigs: {},
         language: "zh-TW",
       },
-      activeSite: "jable",
+      activeSite: Site.Jable,
       toggleSelectVideo: (url) =>
         set((state) => {
           const isSelected = state.selectedVideos.includes(url);
@@ -60,11 +67,12 @@ export const useDownloadStore = create<DownloadState>()(
           return { selectedVideos: newSelected };
         }),
       clearSelection: () => set({ selectedVideos: [] }),
-      addTask: (url, title, status) =>
+      addTask: (url, title, status, site) =>
         set((state) => ({
           tasks: {
             ...state.tasks,
             [url]: {
+              site: site || state.activeSite,
               title: title || "解析中...",
               index: 0,
               total: 0,

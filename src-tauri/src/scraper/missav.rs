@@ -1,3 +1,4 @@
+use super::FetchOptions;
 use crate::scraper::{Category, VideoInfo, VideoListResponse};
 use dom_query::Document;
 use std::error::Error;
@@ -20,37 +21,9 @@ pub fn set_active_domain(domain: &str) {
     *guard = domain.to_string();
 }
 
-pub async fn discover_working_domain(client: &Client) -> String {
-    let domains = vec![
-        "https://missav.ws",
-        "https://missav.ai",
-        "https://missav123.com",
-        "https://missav.live",
-    ];
-
-    for domain in domains {
-        println!("[MissAV] Checking domain: {}", domain);
-        let req = client.get(domain)
-            .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-            .header("accept-language", "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7")
-            .header("referer", "https://missav.ai/");
-        
-        match req.send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                if status.is_success() || status.as_u16() == 403 {
-                    println!("[MissAV] Found working domain: {}", domain);
-                    return domain.to_string();
-                }
-            }
-            Err(e) => {
-                println!("[MissAV] Domain {} failed check: {}", domain, e);
-            }
-        }
-    }
-
-    // Default fallback
-    "https://missav.ws".to_string()
+pub async fn discover_working_domain(client: &wreq::Client) -> String {
+    let mirrors = crate::scraper::get_mirror_domains(crate::scraper::Site::Missav);
+    crate::scraper::discover_working_domain(client, mirrors).await
 }
 
 fn get_fallback_categories(working_domain: &str, lang: &str) -> Vec<Category> {
@@ -215,31 +188,30 @@ pub async fn get_categories(client: &Client, lang: &str) -> Vec<Category> {
 }
 
 pub async fn fetch_list(
-    client: &Client,
-    base_url: &str,
-    page: usize,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
+    opts: &FetchOptions<'_>,
 ) -> Result<VideoListResponse, Box<dyn Error>> {
-    println!("[MissAV Scraper] Fetching list from: {}", base_url);
+    println!("[MissAV Scraper] Fetching list from: {}", opts.target);
 
-    let mut url_parsed = Url::parse(base_url)?;
-    url_parsed.query_pairs_mut().append_pair("page", &page.to_string());
-    
-    let final_url = url_parsed.to_string();
-    println!("[MissAV Scraper] Fetching list from final URL: {}", final_url);
+    let page_str = opts.page.to_string();
+    let mut params = vec![("page", page_str.as_str())];
+    if !opts.lang.is_empty() {
+        params.push(("lang", opts.lang));
+    }
 
-    let accept_lang = crate::scraper::get_accept_language_header(lang);
+    let final_url = crate::scraper::append_query_params(opts.target, &params);
+
+    let accept_lang = crate::scraper::get_accept_language_header(opts.lang);
     let working_domain = get_active_domain();
     let referer_val = format!("{}/", working_domain.trim_end_matches('/'));
     
-    let mut req = client.get(&final_url)
+    let mut req = opts
+        .client
+        .get(&final_url)
         .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
         .header("accept-language", accept_lang)
         .header("referer", &referer_val);
         
-    req = crate::scraper::apply_cf_headers(req, cf_clearance, user_agent);
+    req = crate::scraper::apply_cf_headers(req, opts.cf_clearance, opts.user_agent);
     let resp = req.send().await?;
 
     let status = resp.status();
@@ -383,20 +355,24 @@ pub async fn fetch_list(
 }
 
 pub async fn search_videos(
-    client: &Client,
-    keyword: &str,
-    page: usize,
-    lang: &str,
-    cf_clearance: &str,
-    user_agent: &str,
+    opts: &FetchOptions<'_>,
 ) -> Result<VideoListResponse, Box<dyn Error>> {
-    let encoded_keyword = url::form_urlencoded::byte_serialize(keyword.as_bytes()).collect::<String>();
-    let clean_lang = lang.trim().trim_matches('/');
+    let encoded_keyword = url::form_urlencoded::byte_serialize(opts.target.as_bytes()).collect::<String>();
+    let clean_lang = opts.lang.trim().trim_matches('/');
     let working_domain = get_active_domain();
     let url = if clean_lang.is_empty() {
         format!("{}/search/{}", working_domain, encoded_keyword)
     } else {
         format!("{}/{}/search/{}", working_domain, clean_lang, encoded_keyword)
     };
-    fetch_list(client, &url, page, lang, cf_clearance, user_agent).await
+    let search_opts = FetchOptions {
+        client: opts.client,
+        target: &url,
+        page: opts.page,
+        sort_by: opts.sort_by,
+        lang: opts.lang,
+        cf_clearance: opts.cf_clearance,
+        user_agent: opts.user_agent,
+    };
+    fetch_list(&search_opts).await
 }
