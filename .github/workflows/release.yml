@@ -67,8 +67,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp src-tauri/target/release/avdl.exe ./AVDL_${{ github.ref_name }}_windows_x64.exe
-          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_windows_x64.exe --clobber
+          EXE_PATH=$(find src-tauri/target -name "avdl.exe" -type f | head -n 1)
+          if [ -n "$EXE_PATH" ]; then
+            cp "$EXE_PATH" ./AVDL_${{ github.ref_name }}_windows_x64.exe
+            gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_windows_x64.exe --clobber
+          else
+            echo "avdl.exe not found"
+            exit 1
+          fi
 
       - name: Upload Portable Binary (macOS)
         if: matrix.platform == 'macos-latest'
@@ -76,10 +82,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd src-tauri/target/release/bundle/macos
-          zip -r ../../../../AVDL_${{ github.ref_name }}_mac_arm64.zip avdl.app
-          cd ../../../..
-          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_mac_arm64.zip --clobber
+          APP_PATH=$(find src-tauri/target -name "avdl.app" -type d | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            APP_DIR=$(dirname "$APP_PATH")
+            APP_NAME=$(basename "$APP_PATH")
+            (cd "$APP_DIR" && zip -r "../../../../AVDL_${{ github.ref_name }}_mac_arm64.zip" "$APP_NAME")
+            gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_mac_arm64.zip --clobber
+          else
+            echo "avdl.app not found"
+            exit 1
+          fi
 
       - name: Upload Portable Binary (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -87,6 +99,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp src-tauri/target/release/avdl ./avdl
-          tar -czvf ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz avdl
-          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz --clobber
+          BIN_PATH=$(find src-tauri/target -name "avdl" -type f ! -name "*.d" | head -n 1)
+          if [ -n "$BIN_PATH" ]; then
+            cp "$BIN_PATH" ./avdl
+            tar -czvf ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz avdl
+            gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz --clobber
+          else
+            echo "avdl binary not found"
+            exit 1
+          fi
