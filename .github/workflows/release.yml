@@ -46,6 +46,10 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm install
 
+      - name: Sync Version from Git Tag
+        shell: bash
+        run: node scripts/bump.cjs ${{ github.ref_name }}
+
       - name: Build and Package with Tauri Action
         uses: tauri-apps/tauri-action@v0
         env:
@@ -56,3 +60,33 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload Portable Binary (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp src-tauri/target/release/avdl.exe ./AVDL_${{ github.ref_name }}_windows_x64.exe
+          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_windows_x64.exe --clobber
+
+      - name: Upload Portable Binary (macOS)
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd src-tauri/target/release/bundle/macos
+          zip -r ../../../../AVDL_${{ github.ref_name }}_mac_arm64.zip avdl.app
+          cd ../../../..
+          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_mac_arm64.zip --clobber
+
+      - name: Upload Portable Binary (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp src-tauri/target/release/avdl ./avdl
+          tar -czvf ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz avdl
+          gh release upload ${{ github.ref_name }} ./AVDL_${{ github.ref_name }}_linux_x64.tar.gz --clobber

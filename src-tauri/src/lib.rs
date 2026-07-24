@@ -18,13 +18,40 @@ use commands::system::{
 use commands::AppState;
 use wreq_util::Emulation;
 
+use sysproxy::Sysproxy;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let client = wreq::Client::builder()
+    let mut builder = wreq::Client::builder()
         .emulation(Emulation::Chrome120)
-        .redirect(wreq::redirect::Policy::limited(10))
-        .build()
-        .expect("failed to build wreq client");
+        .redirect(wreq::redirect::Policy::limited(10));
+
+    // Auto-detect system proxy (Clash Verge / System Proxy)
+    let detected_proxy = match Sysproxy::get_system_proxy() {
+        Ok(p) if p.enable => {
+            let host_str = p.host.to_string();
+            let scheme = if host_str.contains("://") {
+                ""
+            } else {
+                "http://"
+            };
+            Some(format!("{}{}:{}", scheme, host_str, p.port))
+        }
+        _ => std::env::var("HTTP_PROXY")
+            .or_else(|_| std::env::var("http_proxy"))
+            .or_else(|_| std::env::var("ALL_PROXY"))
+            .or_else(|_| std::env::var("all_proxy"))
+            .ok(),
+    };
+
+    if let Some(ref proxy_url) = detected_proxy {
+        println!("[AVDL] Auto-detected system proxy: {}", proxy_url);
+        if let Ok(proxy) = wreq::Proxy::all(proxy_url) {
+            builder = builder.proxy(proxy);
+        }
+    }
+
+    let client = builder.build().expect("failed to build wreq client");
 
     let task_states = Arc::new(Mutex::new(HashMap::new()));
     let cf_configs = Arc::new(Mutex::new(HashMap::new()));

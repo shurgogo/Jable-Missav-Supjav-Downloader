@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Compass, DownloadCloud, Settings, BarChart3 } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
 import { useTranslation } from "../i18n";
 import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
@@ -17,6 +18,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(window.innerWidth < 768);
+  const [appVersion, setAppVersion] = useState<string>("0.1.2");
+
+  useEffect(() => {
+    getVersion().then((v) => setAppVersion(v)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -62,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               AVDL
             </h1>
             <span className="text-[10px] text-primary font-bold tracking-wider uppercase block">
-              v0.1.2
+              v{appVersion}
             </span>
           </div>
         )}

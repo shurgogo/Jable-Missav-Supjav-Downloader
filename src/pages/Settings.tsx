@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { useDownloadStore } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
 import { useTranslation } from "../i18n";
@@ -30,9 +31,11 @@ export const Settings: React.FC = () => {
 
   const [showToast, setShowToast] = useState<boolean>(false);
   const [lastLogPath, setLastLogPath] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string>("0.1.2");
   const toastTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
+    getVersion().then((v) => setAppVersion(v)).catch(() => {});
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
@@ -71,7 +74,7 @@ export const Settings: React.FC = () => {
         "          AVDL Diagnostic Debug Log               ",
         "==================================================",
         `Timestamp:           ${new Date().toISOString()} (${new Date().toLocaleString()})`,
-        `App Version:         v0.1.2`,
+        `App Version:         v${appVersion}`,
         `User Agent:          ${navigator.userAgent}`,
         `Active Site:         ${activeSite}`,
         `Download Folder:     ${folder}`,
