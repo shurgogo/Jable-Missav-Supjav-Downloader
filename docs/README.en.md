@@ -72,6 +72,21 @@
 
 ---
 
+## 📦 Which Version Should I Download?
+
+Please select the appropriate Release installer or portable package based on your operating system and architecture:
+
+| Operating System | Architecture | File Format / Example Filename | Description & Usage |
+| :--- | :--- | :--- | :--- |
+| **Windows** | x64 (64-bit) | `avdl_*_x64-setup.exe` / `.msi` | **Installer**: Double-click to run the setup wizard to complete installation. |
+| | | `AVDL_*_windows_x64.exe` | **Portable Binary**: Standalone executable, double-click directly to run. |
+| **macOS** | Apple Silicon (arm64, M-series) | `AVDL_*_mac_arm64.zip` | **Portable Archive**: Unzip and move `avdl.app` into Applications folder.<br>*(If blocked on first launch, see macOS Notes below)* |
+| | | `avdl_*.dmg` | **Disk Image**: Double-click DMG and drag icon to Applications folder. |
+| **Linux** | x64 (64-bit) | `AVDL_*_linux_x64.tar.gz` | **Portable Archive**: Extract the `avdl` executable file and run directly. |
+| | | `avdl_*.AppImage` / `.deb` | **Standard Package**: Grant execution permission for AppImage to run; `.deb` is for Debian/Ubuntu. |
+
+---
+
 ## 🍎 macOS Usage Notes & FAQ
 
 When running the packaged `.app` or binary file, please note that the software is an open-source unsigned application. If you encounter permission blocks prior to first launch, you can execute the following commands in the terminal to remove macOS quarantine restrictions:

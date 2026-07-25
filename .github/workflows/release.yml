@@ -103,7 +103,8 @@ jobs:
           if [ -n "$APP_PATH" ]; then
             APP_DIR=$(dirname "$APP_PATH")
             APP_NAME=$(basename "$APP_PATH")
-            (cd "$APP_DIR" && zip -r "../../../../AVDL_${{ env.EFFECTIVE_TAG }}_mac_arm64.zip" "$APP_NAME")
+            ROOT_DIR=$(pwd)
+            (cd "$APP_DIR" && zip -r "$ROOT_DIR/AVDL_${{ env.EFFECTIVE_TAG }}_mac_arm64.zip" "$APP_NAME")
             gh release upload ${{ env.EFFECTIVE_TAG }} ./AVDL_${{ env.EFFECTIVE_TAG }}_mac_arm64.zip --clobber
           else
             echo "avdl.app not found"
