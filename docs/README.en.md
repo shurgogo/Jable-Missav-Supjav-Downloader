@@ -2,6 +2,8 @@
 
 🌐 Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | **English** | [日本語](README.ja.md)
 
+💬 Discord: [Join our Discord community](https://discord.gg/GACc7HhHY)
+
 > ⚡ **Ultra Lightweight · Maximum Performance** — A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust. Features a featherweight binary (~10 MB) with ultra-low memory footprint. Supports JableTV, MissAV, and SupJav.
 
 ![Light Mode](../docs/images/preview01.png)

@@ -2,6 +2,8 @@
 
 🌐 Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | **日本語**
 
+💬 Discord: [Discord コミュニティに参加](https://discord.gg/GACc7HhHY)
+
 > ⚡ **極小軽量 · 圧倒的ハイパフォーマンス** — Tauri v2、React、Rust で構築された超軽量・高性能デスクトップ動画ダウンローダー＆ブラウザー。アプリサイズは僅か **約 10 MB**、圧倒的な低メモリ消費を実現。JableTV、MissAV、SupJav に対応。
 
 ![ライトモード](../docs/images/preview01.png)

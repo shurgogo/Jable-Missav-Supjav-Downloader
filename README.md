@@ -2,6 +2,8 @@
 
 🌐 Language: **简体中文** | [繁體中文](docs/README.zh-TW.md) | [English](docs/README.en.md) | [日本語](docs/README.ja.md)
 
+💬 Discord: [加入我们的 Discord 社区](https://discord.gg/GACc7HhHY)
+
 > ⚡ **极致微小 · 高能无界** — 基于 Tauri v2、React 和 Rust 构建的高性能桌面视频下载与浏览工具，包体仅 **~10 MB**，极低资源占用。支持 JableTV、MissAV 和 SupJav。
 
 ![浅色模式](./docs/images/preview01.png)
