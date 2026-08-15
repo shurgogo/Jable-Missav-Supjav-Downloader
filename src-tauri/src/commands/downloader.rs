@@ -16,7 +16,8 @@ pub struct UnfinishedTask {
     pub m3u8_url: String,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadRequest {
     pub site: crate::scraper::Site,
     pub url: String,
@@ -40,9 +41,15 @@ pub async fn start_download(
     let resolution = req.resolution.clone();
     let site = req.site;
 
-    // Register the task as Running
+    // Register the task as Running — but reject duplicates so two concurrent
+    // tasks never write into the same temp directory / output file.
     {
         let mut states = task_states.lock().unwrap();
+        if let Some(info) = states.get(&url) {
+            if info.state == TaskControlState::Running {
+                return Err(format!("该影片已在下载中，请勿重复添加: {}", url));
+            }
+        }
         states.insert(
             url.clone(),
             TaskControlInfo {
@@ -114,6 +121,9 @@ pub async fn resume_download(
     let (target_site, final_save_dir, max_c, res_pref) = {
         let mut states = state.task_states.lock().unwrap();
         if let Some(info) = states.get_mut(&url) {
+            if info.state == TaskControlState::Running {
+                return Err(format!("该影片已在下载中，请勿重复启动: {}", url));
+            }
             info.state = TaskControlState::Running;
             (
                 site_val,
@@ -292,12 +302,16 @@ pub async fn cancel_download(
     url: String,
 ) -> Result<(), String> {
     println!("[Commands] Cancelling task: {}", url);
+    // Set the state to Cancelled but KEEP the registry entry: the running
+    // download task observes the flag, stops, deletes its temp folder and
+    // removes the entry itself. Removing the entry here would leave the
+    // spawned task blind to the cancellation and it would keep downloading.
     let info_opt = {
         let mut states = state.task_states.lock().unwrap();
         if let Some(info) = states.get_mut(&url) {
             info.state = TaskControlState::Cancelled;
         }
-        states.remove(&url)
+        states.get(&url).cloned()
     };
 
     if let Some(info) = info_opt {

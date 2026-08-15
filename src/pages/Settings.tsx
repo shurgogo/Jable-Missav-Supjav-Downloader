@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug } from "lucide-react";
+import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug, Rocket, Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { useDownloadStore } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
+import { useUpdateStore } from "../store/useUpdateStore";
+import { runUpdateCheck } from "../utils/update";
 import { useTranslation } from "../i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -34,6 +36,13 @@ export const Settings: React.FC = () => {
   const [appVersion, setAppVersion] = useState<string>("0.1.2");
   const toastTimeoutRef = useRef<any>(null);
 
+  // Update availability state (shared with the sidebar badge)
+  const updateInfo = useUpdateStore((s) => s.updateInfo);
+  const checking = useUpdateStore((s) => s.checking);
+  const ignoredVersion = useUpdateStore((s) => s.ignoredVersion);
+  const setDialogOpen = useUpdateStore((s) => s.setDialogOpen);
+  const clearIgnoredVersion = useUpdateStore((s) => s.clearIgnoredVersion);
+
   useEffect(() => {
     getVersion().then((v) => setAppVersion(v)).catch(() => {});
     return () => {
@@ -42,6 +51,29 @@ export const Settings: React.FC = () => {
       }
     };
   }, []);
+
+  const handleCheckUpdate = async () => {
+    // Manual checks always surface the newest release, even for a version the
+    // user previously skipped — so skipping is never a dead end.
+    const { info, failed } = await runUpdateCheck({ respectIgnored: false });
+    if (info) {
+      setDialogOpen(true);
+    } else if (failed) {
+      showError(t("update_check_failed"));
+    } else {
+      showSuccess(t("update_manual_up_to_date", { version: appVersion }));
+    }
+  };
+
+  const handleRestoreReminders = async () => {
+    clearIgnoredVersion();
+    const { info } = await runUpdateCheck();
+    if (info) {
+      setDialogOpen(true);
+    } else {
+      showSuccess(t("update_manual_up_to_date", { version: appVersion }));
+    }
+  };
 
   const triggerAutoSaveToast = () => {
     if (toastTimeoutRef.current) {
@@ -467,6 +499,70 @@ export const Settings: React.FC = () => {
                   <p>Client engine emulates Chrome 120 client fingerprints to bypass Cloudflare protection.</p>
                   <p>Click "Verify" to open target check window, complete Turnstile challenge inside the window. The window closes automatically once verification is successful.</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card: About & Updates */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-extrabold text-primary border-b border-border pb-2 flex items-center gap-2">
+                <Rocket className="w-5 h-5" />
+                {t("update_about_title")}
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Rocket className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-sm">AVDL</p>
+                    <p className="text-xs text-muted-foreground font-semibold">
+                      v{appVersion}
+                    </p>
+                    {updateInfo ? (
+                      <button
+                        onClick={() => setDialogOpen(true)}
+                        className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-primary hover:text-primary/80 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        {t("update_title")} {updateInfo.latestVersion}
+                      </button>
+                    ) : ignoredVersion ? (
+                      <span className="mt-0.5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70 font-medium">
+                        {t("update_ignored_hint", { version: ignoredVersion })}
+                        <button
+                          onClick={handleRestoreReminders}
+                          className="text-primary hover:text-primary/80 font-bold cursor-pointer underline underline-offset-2"
+                        >
+                          {t("update_restore")}
+                        </button>
+                      </span>
+                    ) : (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/70 font-medium">
+                        {t("update_up_to_date")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckUpdate}
+                  disabled={checking}
+                  className="font-bold gap-1.5"
+                >
+                  {checking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Rocket className="w-3.5 h-3.5" />
+                  )}
+                  {checking ? t("update_checking") : t("update_check_btn")}
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Compass, DownloadCloud, Settings, BarChart3 } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useTranslation } from "../i18n";
+import { useUpdateStore } from "../store/useUpdateStore";
 import { Badge } from "./ui/badge";
 import { cn } from "../lib/utils";
 
@@ -19,6 +20,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(window.innerWidth < 768);
   const [appVersion, setAppVersion] = useState<string>("0.1.2");
+  const updateInfo = useUpdateStore((s) => s.updateInfo);
+  const setDialogOpen = useUpdateStore((s) => s.setDialogOpen);
 
   useEffect(() => {
     getVersion().then((v) => setAppVersion(v)).catch(() => {});
@@ -54,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         onClick={() => setIsCollapsed(!isCollapsed)}
         className={cn(
-          "p-5 flex items-center border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/60 transition-colors duration-200",
+          "relative p-5 flex items-center border-b border-border bg-muted/30 cursor-pointer hover:bg-muted/60 transition-colors duration-200",
           isCollapsed ? "justify-center" : "gap-3"
         )}
         title={isCollapsed ? t("sidebar_expand") : t("sidebar_collapse")}
@@ -62,14 +65,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-10 h-10 shrink-0 flex items-center justify-center">
           <img src="/app-icon.png" alt="AVDL Logo" className="w-full h-full object-contain drop-shadow-sm" />
         </div>
+        {/* Update dot when collapsed (no room for the version text) */}
+        {isCollapsed && updateInfo && (
+          <span
+            className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-primary animate-pulse ring-2 ring-background"
+            title={`${t("update_title")} ${updateInfo.latestVersion}`}
+          />
+        )}
         {!isCollapsed && (
-          <div className="animate-fade-in overflow-hidden">
+          <div className="animate-fade-in overflow-hidden min-w-0">
             <h1 className="font-extrabold text-sm leading-tight text-foreground truncate">
               AVDL
             </h1>
-            <span className="text-[10px] text-primary font-bold tracking-wider uppercase block">
-              v{appVersion}
-            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (updateInfo) {
+                  setDialogOpen(true);
+                }
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase leading-tight",
+                updateInfo
+                  ? "text-primary hover:text-primary/80 cursor-pointer"
+                  : "text-muted-foreground cursor-default"
+              )}
+              title={updateInfo ? `${t("update_title")} ${updateInfo.latestVersion}` : t("update_up_to_date")}
+            >
+              <span>v{appVersion}</span>
+              {updateInfo && (
+                <Badge
+                  variant="default"
+                  className="px-1.5 py-px text-[8px] font-black leading-none animate-pulse bg-primary text-primary-foreground"
+                >
+                  NEW
+                </Badge>
+              )}
+            </button>
           </div>
         )}
       </div>

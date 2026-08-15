@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DownloadCloud,
@@ -20,15 +19,6 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { cn } from "../lib/utils";
 
-interface ProgressPayload {
-  url: string;
-  title: string;
-  index: number;
-  total: number;
-  speed_kbps: number;
-  status: string;
-}
-
 export const Queue: React.FC = () => {
   const { t } = useTranslation();
   const showError = useToastStore((state) => state.showError);
@@ -41,27 +31,6 @@ export const Queue: React.FC = () => {
 
   // Selected tasks state in Queue (for active tasks)
   const [selectedQueueUrls, setSelectedQueueUrls] = useState<string[]>([]);
-
-  // Track active downloads via event listener
-  useEffect(() => {
-    const unlistenPromise = listen<ProgressPayload>("download-progress", (event) => {
-      const { url, title, index, total, speed_kbps, status } = event.payload;
-      if (status.startsWith("failed")) {
-        showError(status.replace("failed: ", ""));
-      }
-      updateTask(url, {
-        title: title || undefined,
-        index,
-        total,
-        speedKbps: speed_kbps,
-        status,
-      });
-    });
-
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten());
-    };
-  }, [updateTask, showError]);
 
   // Scan for interrupted tasks on disk upon component load
   useEffect(() => {

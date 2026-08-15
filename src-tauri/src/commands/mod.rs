@@ -6,12 +6,14 @@ pub mod downloader;
 pub mod media;
 pub mod scraper;
 pub mod system;
+pub mod updater;
 
 pub use cf::*;
 pub use downloader::*;
 pub use media::*;
 pub use scraper::*;
 pub use system::*;
+pub use updater::*;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CfConfig {

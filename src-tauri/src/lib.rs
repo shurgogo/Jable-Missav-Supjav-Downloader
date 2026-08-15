@@ -15,6 +15,7 @@ use commands::scraper::{fetch_video_list, get_categories, get_sidebar_tags, sear
 use commands::system::{
     generate_debug_log, get_disk_space_info, get_folder_size, open_download_folder, select_directory,
 };
+use commands::updater::check_for_update;
 use commands::AppState;
 use wreq_util::Emulation;
 
@@ -81,6 +82,7 @@ pub fn run() {
             sync_cf_configs,
             start_cf_verifier,
             generate_debug_log,
+            check_for_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -70,7 +70,7 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
   const [sortBy, setSortBy] = useState<string>("post_date"); // default to recently updated
   const [sidebarTags, setSidebarTags] = useState<Record<string, TagItem[]>>({});
 
-  const { selectedVideos, toggleSelectVideo, clearSelection, addTask, settings, activeSite, setActiveSite, removeCfConfig } = useDownloadStore();
+  const { selectedVideos, toggleSelectVideo, clearSelection, addTask, tasks, settings, activeSite, setActiveSite, removeCfConfig } = useDownloadStore();
   const site = activeSite;
   const setSite = setActiveSite;
 
@@ -366,8 +366,26 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
     const saveDir = settings.downloadFolder;
     const maxConcurrent = settings.maxConcurrent;
     const resolution = settings.resolution;
-    showSuccess(`已成功加入 ${selectedVideos.length} 个影片到下載隊列`);
-    for (const url of selectedVideos) {
+
+    // Skip videos that are already downloading/merging — starting a second
+    // download for the same URL would corrupt the temp folder / output file.
+    const targets = selectedVideos.filter((url) => {
+      const existing = tasks[url];
+      return (
+        !existing ||
+        !(existing.status === "downloading" || existing.status === "merging")
+      );
+    });
+    const skipped = selectedVideos.length - targets.length;
+
+    if (targets.length === 0) {
+      showError("所选影片都已在下载中，无需重复添加");
+      return;
+    }
+
+    let started = 0;
+    const failures: string[] = [];
+    for (const url of targets) {
       addTask(url, undefined, undefined, site);
       try {
         await invoke("start_download", {
@@ -379,13 +397,25 @@ export const Browse: React.FC<BrowseProps> = ({ onNavigateToQueue }) => {
             resolution,
           },
         });
+        started += 1;
       } catch (err) {
         console.error(`Failed to start download for ${url}:`, err);
+        failures.push(String(err));
       }
     }
     clearSelection();
-    if (onNavigateToQueue) {
-      onNavigateToQueue();
+
+    if (started > 0) {
+      const skipText = skipped > 0 ? `（跳过 ${skipped} 个已在下载中）` : "";
+      showSuccess(`已开始下载 ${started} 个影片${skipText}`);
+      if (onNavigateToQueue) {
+        onNavigateToQueue();
+      }
+    }
+    if (failures.length > 0) {
+      showError(
+        `${failures.length} 个影片启动失败：${failures[0].replace(/^Error invoking remote function 'start_download': /, "")}`
+      );
     }
   };
 
