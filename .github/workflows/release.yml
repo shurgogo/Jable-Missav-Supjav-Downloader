@@ -73,7 +73,7 @@ jobs:
 
       - name: Sync Version from Git Tag
         shell: bash
-        run: node scripts/bump.cjs ${{ env.EFFECTIVE_TAG }}
+        run: node scripts/version.cjs ${{ env.EFFECTIVE_TAG }}
 
       - name: Build and Package with Tauri Action
         uses: tauri-apps/tauri-action@v0
