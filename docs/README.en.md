@@ -1,10 +1,10 @@
 # AVDL - Video Downloader
 
-🌐 Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | **English** | [日本語](README.ja.md)
+Language: [简体中文](../README.md) | [繁體中文](README.zh-TW.md) | **English** | [日本語](README.ja.md)
 
-💬 Discord: [Join our Discord community](https://discord.gg/GACc7HhHY)
+Discord: [Join our Discord community](https://discord.gg/GACc7HhHY)
 
-> ⚡ **Ultra Lightweight · Maximum Performance** — A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust. Features a featherweight binary (~10 MB) with ultra-low memory footprint. Supports JableTV, MissAV, and SupJav.
+> **Ultra Lightweight · Maximum Performance** — A high-performance desktop video downloading and browsing tool built with Tauri v2, React, and Rust. Features a featherweight binary (~10 MB) with ultra-low memory footprint. Supports JableTV, MissAV, and SupJav.
 
 ![Light Mode](../docs/images/preview01.png)
 
@@ -12,84 +12,93 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 📥 Download & File Processing
-- ⚡ **M3U8 Segment Download & Decryption**: Supports multi-threaded TS segment concurrent downloading, AES-128-CBC automatic decryption, and breakpoint resume.
-- 🌊 **Streamtape Streaming Download**: Decrypts Streamtape obfuscated scripts and uses streaming incremental writes to disk.
+### Download & File Processing
 
-### 🛡️ Site Adaptation & Anti-Crawling
-- 🔒 **Cloudflare Verification & Status Perception**: Built-in verification window to obtain and manage Cloudflare credentials, automatically clearing invalid credentials and prompting re-verification.
-- 🌐 **Smart Proxy Perception & Adaptation**: Automatically detects and applies OS-level HTTP / SOCKS5 proxy configurations (seamlessly compatible with Clash, Shadowsocks, and system proxy tools).
-- 🔄 **MissAV Mirror Auto-Switching**: Automatically detects connection failures on the primary domain and switches to available mirror domains.
-- ⚙️ **SupJav Multi-Source Processing**: Supports detection and automatic failover across multiple servers (`TV` / `FST` / `VOE` / `ST`); automatically strips disguised PNG image header data from segments.
-- 🎬 **Trailer Auto-Filtering**: Automatically skips short preview videos under 600 seconds and switches to full-length video sources.
+- **M3U8 Segment Download & Decryption**: Supports multi-threaded TS segment concurrent downloading, AES-128-CBC automatic decryption, and breakpoint resume.
+- **Streamtape Streaming Download**: Decrypts Streamtape obfuscated scripts and uses streaming incremental writes to disk.
 
-### 🎨 Interface & Interaction
-- 🪶 **Ultra Lightweight & Low Footprint**: Executable package is only **~10 MB+**, consuming over **80% less memory** than Electron apps with millisecond startup speeds.
-- 📐 **Responsive Grid Layout**: Automatically adjusts column count based on window size to prevent cover image stretching on large screens and text compression on small screens.
-- 👁️ **Card Hover Preview**: Loads video preview clips when hovering over cards.
-- 📋 **Batch Task Control & Dual-Section Management**: Provides a 2-row compact layout for the download queue with hover tooltips, supporting select-all, multi-select, and batch start, pause, cancel, and one-click history clearing.
-- 🎨 **Flat Design & Multi-Theme Support**: Modern flat design aesthetics, offering built-in dark and light modes with seamless one-click switching.
-- 📊 **Disk Storage Analytics**: Displays the total capacity, remaining available space, and download file usage ratio of the target drive.
-- 🌐 **Multi-Language Support**: Supports Traditional Chinese, Simplified Chinese, English, and Japanese interfaces, as well as multi-language video titles.
+### Site Adaptation & Anti-Crawling
 
----
+- **Cloudflare Verification & Status Perception**: Built-in verification window to obtain and manage Cloudflare credentials, automatically clearing invalid credentials and prompting re-verification.
+- **Smart Proxy Perception & Adaptation**: Automatically detects and applies OS-level HTTP / SOCKS5 proxy configurations (seamlessly compatible with Clash, Shadowsocks, and system proxy tools).
+- **MissAV Mirror Auto-Switching**: Automatically detects connection failures on the primary domain and switches to available mirror domains.
+- **SupJav Multi-Source Processing**: Supports detection and automatic failover across multiple servers (`TV` / `FST` / `VOE` / `ST`); automatically strips disguised PNG image header data from segments.
+- **Trailer Auto-Filtering**: Automatically skips short preview videos under 600 seconds and switches to full-length video sources.
 
-## 🛠️ Tech Stack
+### Interface & Interaction
 
-- 🖥️ **Desktop Framework**: Tauri v2
-- ⚛️ **Frontend Framework**: React 19, TypeScript, Vite
-- 🎨 **UI & Styling**: Tailwind CSS v4, shadcn/ui, Lucide React
-- 🐻 **State Management**: Zustand
-- 🦀 **Backend**: Rust(2021)
-- 🌐 **Networking & Decryption**: `reqwest` / `wreq`, `scraper`, `aes` / `cbc`
-- 🎞️ **Video Merging**: FFmpeg (requires `ffmpeg` in system PATH)
+- **Ultra Lightweight & Low Footprint**: Executable package is only **~10 MB+**, consuming over **80% less memory** than Electron apps with millisecond startup speeds.
+- **Responsive Grid Layout**: Automatically adjusts column count based on window size to prevent cover image stretching on large screens and text compression on small screens.
+- **Card Hover Preview**: Loads video preview clips when hovering over cards.
+- **Batch Task Control & Dual-Section Management**: Provides a 2-row compact layout for the download queue with hover tooltips, supporting select-all, multi-select, and batch start, pause, cancel, and one-click history clearing.
+- **Flat Design & Multi-Theme Support**: Modern flat design aesthetics, offering built-in dark and light modes with seamless one-click switching.
+- **Disk Storage Analytics**: Displays the total capacity, remaining available space, and download file usage ratio of the target drive.
+- **Multi-Language Support**: Supports Traditional Chinese, Simplified Chinese, English, and Japanese interfaces, as well as multi-language video titles.
 
 ---
 
-## 🚀 Build & Running
+## Tech Stack
 
-### 📋 Requirements
+- **Desktop Framework**: Tauri v2
+- **Frontend Framework**: React 19, TypeScript, Vite
+- **UI & Styling**: Tailwind CSS v4, shadcn/ui, Lucide React
+- **State Management**: Zustand
+- **Backend**: Rust (2021)
+- **Networking & Decryption**: `reqwest` / `wreq`, `scraper`, `aes` / `cbc`
+- **Video Merging**: FFmpeg (requires `ffmpeg` in system PATH)
+
+---
+
+## Build & Running
+
+### Requirements
+
 - Node.js (v18+)
 - Rust (1.75+)
 - FFmpeg
 
-### 📦 Development & Packaging
+### Development & Packaging
 
 1. **Install Dependencies**
+
    ```bash
    npm install
    ```
 
 2. **Start Development Server**
+
    ```bash
    npm run tauri dev
    ```
 
 3. **Build Executable**
+
    ```bash
    npm run tauri build
    ```
 
 ---
 
-## 📦 Which Version Should I Download?
+## Which Version Should I Download?
 
 Please select the appropriate Release installer or portable package based on your operating system and architecture:
 
 | Operating System | Architecture | File Format / Example Filename | Description & Usage |
 | :--- | :--- | :--- | :--- |
-| **Windows** | x64 (64-bit) | `avdl_*_x64-setup.exe` / `.msi` | **Installer**: Double-click to run the setup wizard to complete installation. |
+| **Windows** | x64 (64-bit) | `avdl_*_x64-setup.exe` | **Installer**: Double-click to run the setup wizard to complete installation. |
 | | | `AVDL_*_windows_x64.exe` | **Portable Binary**: Standalone executable, double-click directly to run. |
-| **macOS** | Apple Silicon (arm64, M-series) | `AVDL_*_mac_arm64.zip` | **Portable Archive**: Unzip and move `avdl.app` into Applications folder.<br>*(If blocked on first launch, see macOS Notes below)* |
-| | | `avdl_*.dmg` | **Disk Image**: Double-click DMG and drag icon to Applications folder. |
-| **Linux** | x64 (64-bit) | `AVDL_*_linux_x64.tar.gz` | **Portable Archive**: Extract the `avdl` executable file and run directly. |
-| | | `avdl_*.AppImage` / `.deb` | **Standard Package**: Grant execution permission for AppImage to run; `.deb` is for Debian/Ubuntu. |
+| **macOS** | Apple Silicon (arm64, M-series) | `avdl_*.dmg` | **Disk Image**: Double-click DMG and drag icon to Applications folder. |
+| | | `AVDL_*_mac_arm64.zip` | **Portable Archive**: Unzip and move `avdl.app` into Applications folder.<br>(If blocked on first launch, see macOS Notes below) |
+| **Linux** | x64 (64-bit) | `avdl_*.AppImage` | **Standard Package**: Grant execution permission for AppImage to run. |
+| | | `AVDL_*_linux_x64.tar.gz` | **Portable Archive**: Extract the `avdl` executable file and run directly. |
+
+> The filename prefix case matches the actual Release artifacts: lowercase `avdl_` for Tauri-generated installers (NSIS / DMG / AppImage) and uppercase `AVDL_` for CI-generated portable builds.
 
 ---
 
-## 🍎 macOS Usage Notes & FAQ
+## macOS Usage Notes & FAQ
 
 When running the packaged `.app` or binary file, please note that the software is an open-source unsigned application. If you encounter permission blocks prior to first launch, you can execute the following commands in the terminal to remove macOS quarantine restrictions:
 
@@ -103,6 +112,6 @@ xattr -cr ./avdl
 
 ---
 
-## 📜 Disclaimer
+## Disclaimer
 
 This project is intended strictly for personal learning and technical research purposes.
