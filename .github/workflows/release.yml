@@ -15,6 +15,7 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -22,9 +23,6 @@ jobs:
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
             args: '--target aarch64-apple-darwin'
-            # Deterministic paths — no `find | head` pipelines (see below).
-            bundle_dir: 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos'
-            bundle_name: 'avdl.app'
           - platform: 'windows-latest'
             target: 'x86_64-pc-windows-msvc'
             args: ''
@@ -36,7 +34,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set Release Tag
         shell: bash
@@ -53,7 +51,7 @@ jobs:
           echo "Using release tag: $TAG"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
@@ -143,27 +141,33 @@ jobs:
 
           case "${{ matrix.platform }}" in
             macos-latest)
-              APP_NAME="${{ matrix.bundle_name }}"
+              # After tauri bundles the .dmg it CLEANS the .app out of
+              # bundle/macos/, so the portable zip must be produced from the
+              # dmg itself (hdiutil is preinstalled on macOS runners).
               ZIP_NAME="AVDL_${TAG}_mac_arm64.zip"
-              APP_DIR=""
-              # The bundle lives under the explicit target dir when
-              # `--target` is passed; check both layouts to be resilient.
+              DMG_PATH=""
               for candidate in \
-                "${{ matrix.bundle_dir }}" \
-                "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/macos" ; do
-                if [ -d "${candidate}/${APP_NAME}" ]; then
-                  APP_DIR="$candidate"
-                  break
-                fi
+                "$GITHUB_WORKSPACE/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/"*.dmg \
+                "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/dmg/"*.dmg ; do
+                [ -f "$candidate" ] && DMG_PATH="$candidate" && break
               done
-              if [ -z "$APP_DIR" ]; then
-                echo "::error::macOS app bundle not found. Searching target dir:"
-                find "$GITHUB_WORKSPACE/src-tauri/target" -name "*.app" -type d 2>/dev/null | head -10 || true
-                echo "--- bundle dirs ---"
-                ls -la "$GITHUB_WORKSPACE/src-tauri/target/release/bundle" 2>/dev/null || true
+              if [ -z "$DMG_PATH" ]; then
+                echo "::error::macOS dmg not found. Searching:"
+                find "$GITHUB_WORKSPACE/src-tauri/target" -name "*.dmg" -type f 2>/dev/null | head -5 || true
                 exit 1
               fi
-              (cd "${APP_DIR}" && zip -r "${GITHUB_WORKSPACE}/${ZIP_NAME}" "${APP_NAME}")
+              echo "Extracting .app from $DMG_PATH"
+              MOUNT="/tmp/avdl_dmg"
+              rm -rf "$MOUNT" && mkdir -p "$MOUNT"
+              hdiutil attach "$DMG_PATH" -nobrowse -readonly -mountpoint "$MOUNT" >/dev/null
+              APP_PATH=$(find "$MOUNT" -maxdepth 3 -name "*.app" -type d | head -n 1)
+              if [ -z "$APP_PATH" ]; then
+                echo "::error::avdl.app not found inside dmg"
+                hdiutil detach "$MOUNT" >/dev/null 2>&1 || true
+                exit 1
+              fi
+              (cd "$(dirname "$APP_PATH")" && zip -r "${GITHUB_WORKSPACE}/${ZIP_NAME}" "$(basename "$APP_PATH")")
+              hdiutil detach "$MOUNT" >/dev/null 2>&1 || true
               gh release upload "${TAG}" "${GITHUB_WORKSPACE}/${ZIP_NAME}" --clobber
               ;;
             windows-latest)
