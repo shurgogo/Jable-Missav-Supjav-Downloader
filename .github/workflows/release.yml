@@ -76,7 +76,7 @@ jobs:
         run: node scripts/version.cjs ${{ env.EFFECTIVE_TAG }}
 
       - name: Build and Package with Tauri Action
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -99,8 +99,11 @@ jobs:
             echo "CHANGELOG.md not found — skipping release notes"
             exit 0
           fi
+          # Write the extracted section straight to a UTF-8 file. Do NOT print
+          # it to stdout: on Windows runners Python's stdout defaults to the
+          # ANSI codepage (cp1252) and chokes on non-ASCII changelog text.
           python3 - "$GITHUB_WORKSPACE/CHANGELOG.md" "$EFFECTIVE_TAG" \
-            > "$GITHUB_WORKSPACE/release_body.md" <<'PYEOF'
+            "$GITHUB_WORKSPACE/release_body.md" <<'PYEOF'
           import re, sys
           text = open(sys.argv[1], encoding='utf-8').read()
           version = sys.argv[2].lstrip('v')
@@ -112,7 +115,8 @@ jobs:
           start = m.start()
           m2 = re.search(r'(?m)^##\s', text[start + 1:])
           end = start + 1 + m2.start() if m2 else len(text)
-          sys.stdout.write(text[start:end].rstrip() + "\n")
+          with open(sys.argv[3], 'w', encoding='utf-8') as out:
+              out.write(text[start:end].rstrip() + "\n")
           PYEOF
           gh release edit "$EFFECTIVE_TAG" --notes-file "$GITHUB_WORKSPACE/release_body.md"
           echo "Release notes updated for $EFFECTIVE_TAG from CHANGELOG.md"
@@ -139,13 +143,24 @@ jobs:
 
           case "${{ matrix.platform }}" in
             macos-latest)
-              APP_DIR="${{ matrix.bundle_dir }}"
               APP_NAME="${{ matrix.bundle_name }}"
               ZIP_NAME="AVDL_${TAG}_mac_arm64.zip"
-              echo "Checking bundle at ${APP_DIR}/${APP_NAME}"
-              ls -la "${APP_DIR}" || true
-              if [ ! -d "${APP_DIR}/${APP_NAME}" ]; then
-                echo "::error::macOS app bundle not found at ${APP_DIR}/${APP_NAME}"
+              APP_DIR=""
+              # The bundle lives under the explicit target dir when
+              # `--target` is passed; check both layouts to be resilient.
+              for candidate in \
+                "${{ matrix.bundle_dir }}" \
+                "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/macos" ; do
+                if [ -d "${candidate}/${APP_NAME}" ]; then
+                  APP_DIR="$candidate"
+                  break
+                fi
+              done
+              if [ -z "$APP_DIR" ]; then
+                echo "::error::macOS app bundle not found. Searching target dir:"
+                find "$GITHUB_WORKSPACE/src-tauri/target" -name "*.app" -type d 2>/dev/null | head -10 || true
+                echo "--- bundle dirs ---"
+                ls -la "$GITHUB_WORKSPACE/src-tauri/target/release/bundle" 2>/dev/null || true
                 exit 1
               fi
               (cd "${APP_DIR}" && zip -r "${GITHUB_WORKSPACE}/${ZIP_NAME}" "${APP_NAME}")
