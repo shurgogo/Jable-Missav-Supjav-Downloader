@@ -56,6 +56,7 @@ pub fn run() {
 
     let task_states = Arc::new(Mutex::new(HashMap::new()));
     let cf_configs = Arc::new(Mutex::new(HashMap::new()));
+    let task_generation = Arc::new(std::sync::atomic::AtomicU64::new(0));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -63,6 +64,7 @@ pub fn run() {
             client,
             task_states,
             cf_configs,
+            task_generation,
         })
         .invoke_handler(tauri::generate_handler![
             fetch_preview_video,

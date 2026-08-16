@@ -10,31 +10,6 @@ pub struct JableVideoPageInfo {
     pub m3u8_url: String,
 }
 
-pub async fn parse_jable_page(client: &Client, url: &str) -> Result<JableVideoPageInfo, Box<dyn Error>> {
-    let resp = client.get(url)
-        .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-        .header("accept-language", "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7")
-        .header("referer", "https://jable.tv/")
-        .send()
-        .await?;
-        
-    let text = resp.text().await?;
-    
-    let re_title = Regex::new(r#"og:title"\s+content="([^"]+)""#)?;
-    let re_m3u8 = Regex::new(r#"https://[^\s"'`]+\.m3u8"#)?;
-    
-    let title = re_title.captures(&text)
-        .and_then(|c| c.get(1))
-        .map(|m| m.as_str().to_string())
-        .unwrap_or_else(|| "jable_video".to_string());
-        
-    let m3u8_url = re_m3u8.find(&text)
-        .map(|m| m.as_str().to_string())
-        .ok_or_else(|| "Could not find M3U8 URL in the page HTML")?;
-        
-    Ok(JableVideoPageInfo { title, m3u8_url })
-}
-
 pub fn parse_missav_page(html: &str) -> Result<JableVideoPageInfo, Box<dyn Error>> {
     let re_title = Regex::new(r#"og:title"\s+content="([^"]+)""#)?;
     let title = re_title.captures(html)

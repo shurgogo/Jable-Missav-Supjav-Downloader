@@ -15,6 +15,10 @@ pub struct TaskControlInfo {
     pub save_dir: String,
     pub max_concurrent: usize,
     pub resolution: String,
+    /// Instance generation: every start/resume bumps it, so a superseded
+    /// download task can detect that a newer instance took over and must
+    /// stop emitting events / touching output files.
+    pub generation: u64,
 }
 
 pub type TaskRegistry = Arc<Mutex<HashMap<String, TaskControlInfo>>>;

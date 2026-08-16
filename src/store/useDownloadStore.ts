@@ -85,6 +85,17 @@ export const useDownloadStore = create<DownloadState>()(
         })),
       updateTask: (url, taskUpdate) =>
         set((state) => {
+          // A task that already completed must not be resurrected by a stale
+          // event from an older download instance (pause → resume race where
+          // the old task's "paused"/"failed" event arrives after the new
+          // instance already finished).
+          if (
+            taskUpdate.status !== "completed" &&
+            state.completedTasks[url] &&
+            !state.tasks[url]
+          ) {
+            return state;
+          }
           const existing = state.tasks[url] || state.completedTasks[url] || {
             title: "解析中...",
             index: 0,

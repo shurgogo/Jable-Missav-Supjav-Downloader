@@ -48,55 +48,6 @@
 
 ---
 
-## 🚀 运行与构建
-
-### 📋 依赖要求
-- Node.js (v18+)
-- Rust (1.75+)
-- FFmpeg
-
-### 📦 开发与打包
-
-1. **安装依赖**
-   ```bash
-   npm install
-   ```
-
-2. **启动开发服务**
-   ```bash
-   npm run tauri dev
-   ```
-
-3. **构建可执行文件**
-   ```bash
-   npm run tauri build
-   ```
-
-### 🧪 本地测试版本更新检查（无需发布）
-
-应用启动时会静默检查 GitHub 最新 release（有新版才在侧边栏显示 NEW 徽章）。本地测试时不要直接发布——用内置的 mock server 模拟 GitHub API：
-
-```bash
-# 终端 1：启动模拟的 GitHub release 服务器（默认端口 8765）
-node scripts/mock-release-server.mjs
-
-# 终端 2：让应用把更新检查指向本机 mock server 再启动
-AVDL_RELEASE_API_URL=http://127.0.0.1:8765 npm run tauri dev
-```
-
-修改 `scripts/mock-release-server.mjs` 顶部的 `release` 对象即可模拟不同场景：
-- `tag_name` 设为 `v9.9.9`（比本地新）→ 测试 NEW 徽章、更新对话框、忽略此版本
-- `tag_name` 设为低于本地版本 → 测试「已是最新版本」
-- `prerelease: true` → 测试 pre-release 回退逻辑（改用 releases 列表）
-- `body` → 测试对话框里 changelog 的渲染
-- `html_url` → 测试「立即更新」按钮打开的链接（默认打开 mock server 页面）
-
-> 不依赖 mock 的快速验证：临时把 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 的 `version` 改成 `0.1.0` 后直接 `npm run tauri dev`，会命中真实 GitHub API 并提示更新到最新版（测完记得改回）。
->
-> 说明：应用走系统代理的 HTTP 客户端，但对 `127.0.0.1` 的请求默认绕过代理，mock 测试不受 VPN 影响。
-
----
-
 ## 📦 我该下载哪个版本
 
 请根据您的操作系统与架构选择对应的 Release 安装包或免安装便携版文件：

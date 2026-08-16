@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 pub mod cf;
@@ -25,4 +26,7 @@ pub struct AppState {
     pub client: wreq::Client,
     pub task_states: crate::downloader::TaskRegistry,
     pub cf_configs: Arc<Mutex<HashMap<String, CfConfig>>>,
+    /// Monotonic counter assigning a unique generation to each download
+    /// task instance (see `TaskControlInfo::generation`).
+    pub task_generation: Arc<AtomicU64>,
 }

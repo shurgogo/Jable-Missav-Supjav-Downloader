@@ -71,3 +71,5 @@ lerna-debug.log*
 
 # Github actions
 # .github/
+# 本地开发者文档（不随仓库上传）
+DEVELOPMENT.md

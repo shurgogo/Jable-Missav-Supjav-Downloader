@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use tauri::{Manager, State};
 
 use crate::downloader::{download_video, TaskControlInfo, TaskControlState};
@@ -58,6 +59,7 @@ pub async fn start_download(
                 save_dir: save_dir.clone(),
                 max_concurrent,
                 resolution: resolution.clone(),
+                generation: state.task_generation.fetch_add(1, Ordering::Relaxed) + 1,
             },
         );
     }
@@ -125,6 +127,9 @@ pub async fn resume_download(
                 return Err(format!("该影片已在下载中，请勿重复启动: {}", url));
             }
             info.state = TaskControlState::Running;
+            // New instance — bump the generation so any lingering old task
+            // for this URL recognises itself as superseded and backs off.
+            info.generation = state.task_generation.fetch_add(1, Ordering::Relaxed) + 1;
             (
                 site_val,
                 info.save_dir.clone(),
@@ -201,6 +206,7 @@ pub async fn resume_download(
                     save_dir: r_save.clone(),
                     max_concurrent: r_max,
                     resolution: r_res.clone(),
+                    generation: state.task_generation.fetch_add(1, Ordering::Relaxed) + 1,
                 },
             );
 

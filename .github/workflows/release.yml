@@ -86,6 +86,37 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
+      # Pull the release notes straight from CHANGELOG.md — no manual editing
+      # on the GitHub release page. The section matching EFFECTIVE_TAG is used
+      # (falling back to the first section, e.g. [Unreleased]).
+      - name: Update Release Notes from CHANGELOG.md
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EFFECTIVE_TAG: ${{ env.EFFECTIVE_TAG }}
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "CHANGELOG.md not found — skipping release notes"
+            exit 0
+          fi
+          python3 - "$GITHUB_WORKSPACE/CHANGELOG.md" "$EFFECTIVE_TAG" \
+            > "$GITHUB_WORKSPACE/release_body.md" <<'PYEOF'
+          import re, sys
+          text = open(sys.argv[1], encoding='utf-8').read()
+          version = sys.argv[2].lstrip('v')
+          m = re.search(r'(?m)^##\s+\[%s\]' % re.escape(version), text)
+          if not m:
+              m = re.search(r'(?m)^##\s', text)  # fallback: first section
+          if not m:
+              sys.exit(0)
+          start = m.start()
+          m2 = re.search(r'(?m)^##\s', text[start + 1:])
+          end = start + 1 + m2.start() if m2 else len(text)
+          sys.stdout.write(text[start:end].rstrip() + "\n")
+          PYEOF
+          gh release edit "$EFFECTIVE_TAG" --notes-file "$GITHUB_WORKSPACE/release_body.md"
+          echo "Release notes updated for $EFFECTIVE_TAG from CHANGELOG.md"
+
       # Portable (installer-free) artifacts for all three platforms.
       #
       # NOTE: previous versions located binaries with `find ... | head -n 1`.

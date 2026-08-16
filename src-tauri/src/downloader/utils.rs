@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::time::{Duration, Instant};
+use tauri::Emitter;
 use url::Url;
 
 pub fn apply_referer(mut req: wreq::RequestBuilder, original_url: &str) -> wreq::RequestBuilder {
@@ -223,4 +225,150 @@ pub fn strip_fake_header(data: &[u8]) -> &[u8] {
     }
     
     &[]
+}
+
+/// Append an actionable hint when an error smells like a Cloudflare block, so
+/// users are not left with a "mysterious" failure.
+pub fn cloudflare_hint(err: &str) -> String {
+    let lower = err.to_lowercase();
+    if lower.contains("403")
+        || lower.contains("forbidden")
+        || lower.contains("cloudflare")
+        || lower.contains("cf-challenge")
+    {
+        format!(
+            "{}（可能是 Cloudflare 验证已过期/被拦截，请在浏览页重新点击「验证」后重试）",
+            err
+        )
+    } else {
+        err.to_string()
+    }
+}
+
+/// Emit a `download-progress` event to the frontend.
+pub fn emit_progress(
+    window: &tauri::Window,
+    url: &str,
+    title: &str,
+    index: usize,
+    total: usize,
+    speed_kbps: f64,
+    status: &str,
+) {
+    let _ = window.emit(
+        "download-progress",
+        super::task::ProgressPayload {
+            url: url.to_string(),
+            title: title.to_string(),
+            index,
+            total,
+            speed_kbps,
+            status: status.to_string(),
+        },
+    );
+}
+
+/// Emit a failure event and drop the task's control entry so a retry /
+/// re-download is not blocked by a stale "Running" state.
+pub fn emit_failure(window: &tauri::Window, task_states: &super::task::TaskRegistry, url: &str, msg: &str) {
+    emit_progress(window, url, "", 0, 0, 0.0, &format!("failed: {}", cloudflare_hint(msg)));
+    let mut states = task_states.lock().unwrap();
+    states.remove(url);
+}
+
+/// Sliding-window download speed estimator.
+///
+/// Samples are (timestamp, cumulative-bytes) pairs; the speed is the byte
+/// delta across the whole window divided by the window's elapsed time. This
+/// smooths out the bursty arrival of network chunks: instead of flipping
+/// between 0 KB/s and a spike whenever a chunk lands, the UI shows the
+/// average rate over the last `window` seconds.
+pub struct SpeedTracker {
+    samples: VecDeque<(Instant, usize)>,
+    window: Duration,
+}
+
+impl SpeedTracker {
+    pub fn new(window: Duration) -> Self {
+        SpeedTracker {
+            samples: VecDeque::new(),
+            window,
+        }
+    }
+
+    pub fn add_sample(&mut self, now: Instant, bytes: usize) {
+        self.samples.push_back((now, bytes));
+        // Drop samples older than the window.
+        while let Some((t, _)) = self.samples.front() {
+            if now.duration_since(*t) > self.window {
+                self.samples.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Average download speed (KB/s) over the sliding window, 0.0 when there
+    /// is not enough data yet.
+    pub fn get_speed(&self) -> f64 {
+        if self.samples.len() < 2 {
+            return 0.0;
+        }
+        let (start_t, start_b) = self.samples.front().unwrap();
+        let (end_t, end_b) = self.samples.back().unwrap();
+        let dt = end_t.duration_since(*start_t).as_secs_f64();
+        let db = end_b.saturating_sub(*start_b);
+        if dt > 0.0 {
+            (db as f64) / 1024.0 / dt
+        } else {
+            0.0
+        }
+    }
+
+    /// Record a sample and return the current windowed speed in one call.
+    pub fn sample(&mut self, now: Instant, bytes: usize) -> f64 {
+        self.add_sample(now, bytes);
+        self.get_speed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn speed_tracker_averages_over_window() {
+        // 1 秒内均匀下载 1MB（4 个采样）→ 窗口速度应稳定在 1024 KB/s，
+        // 而不是按相邻采样点跳动。
+        let mut st = SpeedTracker::new(Duration::from_secs(3));
+        let t0 = Instant::now();
+        let mut speed = 0.0;
+        for i in 1..=4 {
+            speed = st.sample(t0 + Duration::from_millis(i * 250), (i * 256 * 1024) as usize);
+        }
+        assert!(
+            (speed - 1024.0).abs() < 1.0,
+            "windowed speed should be ~1024 KB/s, got {}",
+            speed
+        );
+    }
+
+    #[test]
+    fn speed_tracker_drops_old_samples() {
+        let mut st = SpeedTracker::new(Duration::from_secs(3));
+        let t0 = Instant::now();
+        st.add_sample(t0, 0);
+        st.add_sample(t0 + Duration::from_secs(1), 1024 * 1024);
+        // 4s 时窗口为 (1s, 4s]，两个采样字节相同 → 速度为 0（无新增流量）
+        st.add_sample(t0 + Duration::from_secs(4), 1024 * 1024);
+        assert_eq!(st.get_speed(), 0.0);
+        // 5s 时 2MB：窗口内 t=4s(1MB)→t=5s(2MB)，1MB/1s = 1024 KB/s
+        st.add_sample(t0 + Duration::from_secs(5), 2 * 1024 * 1024);
+        let s = st.get_speed();
+        assert!(
+            (s - 1024.0).abs() < 1.0,
+            "expected ~1024 KB/s after new traffic, got {}",
+            s
+        );
+    }
 }
