@@ -1,6 +1,6 @@
 [package]
 name = "avdl"
-version = "0.2.1"
+version = "0.3.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -22,7 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-wreq = { version = "6.0.0-rc", features = ["stream"] }
+wreq = { version = "6.0.0-rc", features = ["stream", "socks"] }
 wreq-util = "3.0.0-rc"
 url = "2"
 dom_query = "0.27.0"

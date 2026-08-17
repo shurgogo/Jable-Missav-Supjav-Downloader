@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug, Rocket, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, Info, ShieldCheck, CheckCircle2, FolderOpen, ExternalLink, FileText, Bug, Rocket, Loader2, Globe } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import { useDownloadStore } from "../store/useDownloadStore";
+import { useDownloadStore, AppSettings } from "../store/useDownloadStore";
 import { useToastStore } from "../store/useToastStore";
 import { useUpdateStore } from "../store/useUpdateStore";
 import { runUpdateCheck } from "../utils/update";
+import { applyProxySettings, getProxyStatus, ProxyStatus } from "../utils/proxy";
 import { useTranslation } from "../i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -34,6 +35,7 @@ export const Settings: React.FC = () => {
   const [showToast, setShowToast] = useState<boolean>(false);
   const [lastLogPath, setLastLogPath] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string>("0.1.2");
+  const [proxyStatus, setProxyStatus] = useState<ProxyStatus | null>(null);
   const toastTimeoutRef = useRef<any>(null);
 
   // Update availability state (shared with the sidebar badge)
@@ -45,12 +47,58 @@ export const Settings: React.FC = () => {
 
   useEffect(() => {
     getVersion().then((v) => setAppVersion(v)).catch(() => {});
+    // Show the currently effective proxy configuration.
+    getProxyStatus().then(setProxyStatus).catch(() => {});
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
       }
     };
   }, []);
+
+  const handleProxyModeChange = async (mode: string) => {
+    updateSettings({ proxyMode: mode as AppSettings["proxyMode"] });
+    triggerAutoSaveToast();
+    try {
+      const status = await applyProxySettings();
+      setProxyStatus(status);
+    } catch (err) {
+      console.error("Failed to apply proxy settings:", err);
+      showError(String(err));
+    }
+  };
+
+  const applyCustomProxy = async () => {
+    try {
+      const status = await applyProxySettings();
+      setProxyStatus(status);
+    } catch (err) {
+      console.error("Failed to apply custom proxy:", err);
+      showError(String(err));
+    }
+  };
+
+  const proxyStatusText = (() => {
+    if (!proxyStatus) return null;
+    if (proxyStatus.mode === "direct") return t("settings_proxy_status_direct");
+    if (proxyStatus.mode === "custom") {
+      return proxyStatus.url
+        ? t("settings_proxy_status_custom", { url: proxyStatus.url })
+        : t("settings_proxy_status_direct");
+    }
+    return proxyStatus.url
+      ? t("settings_proxy_status_system", { url: proxyStatus.url })
+      : t("settings_proxy_status_system_none");
+  })();
+
+  const proxyWarningText =
+    proxyStatus?.warning === "pac_unsupported"
+      ? t("settings_proxy_warn_pac")
+      : proxyStatus?.warning === "parse_failed"
+        ? t("settings_proxy_warn_parse")
+        : proxyStatus?.warning === "socks_unsupported"
+          ? t("settings_proxy_warn_socks")
+          : null;
 
   const handleCheckUpdate = async () => {
     // Manual checks always surface the newest release, even for a version the
@@ -115,6 +163,9 @@ export const Settings: React.FC = () => {
         `Theme:               ${settings.theme}`,
         `Language:            ${settings.language}`,
         `Logging Enabled:     ${Boolean(settings.enableLogging)}`,
+        `Proxy Mode:          ${settings.proxyMode || "system"}`,
+        `Custom Proxy:        ${settings.customProxy || "-"}`,
+        `Effective Proxy:     ${proxyStatus?.url || "direct (直连)"}`,
         `CF Verified Domains: ${cfDomains}`,
         "--------------------------------------------------",
         `Active Tasks (${activeTasksCount}):`,
@@ -417,6 +468,86 @@ export const Settings: React.FC = () => {
                 )}
               </div>
 
+            </CardContent>
+          </Card>
+
+          {/* Card: Network & Proxy */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-extrabold text-primary border-b border-border pb-2 flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                {t("settings_proxy")}
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              <p className="text-xs text-muted-foreground font-semibold">
+                {t("settings_proxy_desc")}
+              </p>
+
+              {/* Proxy mode */}
+              <div className="space-y-2">
+                <label className="text-sm font-extrabold text-foreground block">
+                  {t("settings_proxy_mode")}
+                </label>
+                <Select
+                  value={settings.proxyMode || "system"}
+                  onValueChange={handleProxyModeChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="system">{t("settings_proxy_system")}</SelectItem>
+                    <SelectItem value="direct">{t("settings_proxy_direct")}</SelectItem>
+                    <SelectItem value="custom">{t("settings_proxy_custom")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Custom proxy URL */}
+              {(settings.proxyMode || "system") === "custom" && (
+                <div className="space-y-2 animate-fade-in">
+                  <label className="text-sm font-extrabold text-foreground block">
+                    {t("settings_proxy_custom_url")}
+                  </label>
+                  <Input
+                    type="text"
+                    value={settings.customProxy || ""}
+                    onChange={(e) => {
+                      updateSettings({ customProxy: e.target.value });
+                      triggerAutoSaveToast();
+                    }}
+                    onBlur={applyCustomProxy}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applyCustomProxy();
+                    }}
+                    className="font-mono"
+                    placeholder={t("settings_proxy_custom_placeholder")}
+                  />
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {t("settings_proxy_custom_desc")}
+                  </p>
+                </div>
+              )}
+
+              {/* Effective status */}
+              <div className="flex items-start gap-3 bg-muted/30 p-4 rounded-xl border border-border">
+                <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="text-xs text-muted-foreground font-medium space-y-1 min-w-0">
+                  <p className="font-extrabold text-foreground">
+                    {t("settings_proxy_status")}
+                  </p>
+                  {proxyStatusText ? (
+                    <p className="font-mono break-all">{proxyStatusText}</p>
+                  ) : (
+                    <p>{t("settings_proxy_status_loading")}</p>
+                  )}
+                  {proxyWarningText && (
+                    <p className="text-amber-500 font-semibold">{proxyWarningText}</p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
 

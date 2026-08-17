@@ -24,9 +24,12 @@ pub async fn get_categories(
     state: State<'_, AppState>,
     req: ScraperRequest,
 ) -> Result<Vec<Category>, String> {
+    // Clone the client out of the lock before awaiting (proxy settings may
+    // swap it at runtime).
+    let client = state.client.lock().unwrap().clone();
     match req.site {
-        Site::Jable => Ok(jable::get_categories(&state.client, &req.lang).await),
-        Site::Missav => Ok(missav::get_categories(&state.client, &req.lang).await),
+        Site::Jable => Ok(jable::get_categories(&client, &req.lang).await),
+        Site::Missav => Ok(missav::get_categories(&client, &req.lang).await),
         Site::Supjav => Ok(supjav::get_categories(&req.lang).await),
     }
 }
@@ -39,13 +42,15 @@ pub async fn fetch_video_list(
     let target_url = req.url.as_deref().unwrap_or_default();
     let page = req.page.unwrap_or(1);
 
+    let client = state.client.lock().unwrap().clone();
+
     let (cf_clearance, user_agent) = {
         let configs = state.cf_configs.lock().unwrap();
         crate::scraper::get_cf_headers_for_url(&configs, target_url)
     };
 
     let opts = FetchOptions {
-        client: &state.client,
+        client: &client,
         target: target_url,
         page,
         sort_by: req.sort_by.as_deref(),
@@ -75,6 +80,8 @@ pub async fn search_videos(
     let keyword = req.keyword.as_deref().unwrap_or_default();
     let page = req.page.unwrap_or(1);
 
+    let client = state.client.lock().unwrap().clone();
+
     match req.site {
         Site::Jable => {
             let (cf_clearance, user_agent) = {
@@ -82,7 +89,7 @@ pub async fn search_videos(
                 crate::scraper::get_cf_headers_for_url(&configs, "https://jable.tv/")
             };
             let opts = FetchOptions {
-                client: &state.client,
+                client: &client,
                 target: keyword,
                 page,
                 sort_by: req.sort_by.as_deref(),
@@ -101,7 +108,7 @@ pub async fn search_videos(
                 crate::scraper::get_cf_headers_for_url(&configs, &active_domain)
             };
             let opts = FetchOptions {
-                client: &state.client,
+                client: &client,
                 target: keyword,
                 page,
                 sort_by: req.sort_by.as_deref(),
@@ -119,7 +126,7 @@ pub async fn search_videos(
                 crate::scraper::get_cf_headers_for_url(&configs, "https://supjav.com/")
             };
             let opts = FetchOptions {
-                client: &state.client,
+                client: &client,
                 target: keyword,
                 page,
                 sort_by: req.sort_by.as_deref(),

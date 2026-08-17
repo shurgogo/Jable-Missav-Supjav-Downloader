@@ -8,6 +8,7 @@ import { StatsPage } from "./pages/StatsPage";
 import { useDownloadStore } from "./store/useDownloadStore";
 import { useToastStore } from "./store/useToastStore";
 import { runUpdateCheck } from "./utils/update";
+import { applyProxySettings } from "./utils/proxy";
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -77,6 +78,15 @@ function App() {
   }, [updateTask, showError]);
 
   useEffect(() => {
+    // Apply the persisted proxy mode (system/direct/custom) to the backend
+    // client right after hydration so the saved choice takes effect before
+    // any network request. Default (first run) is "system".
+    const applyProxy = () => {
+      applyProxySettings().catch((e) =>
+        console.error("Failed to apply proxy settings on hydration:", e),
+      );
+    };
+
     // Sync on hydration completion (startup)
     const unsubFinish = useDownloadStore.persist.onFinishHydration((state) => {
       console.log(
@@ -88,6 +98,7 @@ function App() {
       }).catch((e) =>
         console.error("Failed to sync CF configs on hydration:", e),
       );
+      applyProxy();
     });
 
     // Sync immediately if already hydrated (like during development or hot reloading)
@@ -95,6 +106,7 @@ function App() {
       invoke("sync_cf_configs", {
         configs: useDownloadStore.getState().settings.cfConfigs || {},
       }).catch((e) => console.error("Failed to sync CF configs initially:", e));
+      applyProxy();
     }
 
     return () => {

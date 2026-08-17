@@ -18,6 +18,10 @@ export interface AppSettings {
   cfConfigs: Record<string, { cfClearance: string; userAgent: string }>;
   language: string;
   enableLogging?: boolean;
+  /** Proxy mode: "system" (default) | "direct" | "custom" */
+  proxyMode?: "system" | "direct" | "custom";
+  /** Custom proxy URL used when proxyMode === "custom" */
+  customProxy?: string;
 }
 
 export enum Site {
@@ -58,6 +62,8 @@ export const useDownloadStore = create<DownloadState>()(
         cfConfigs: {},
         language: "zh-TW",
         enableLogging: false,
+        proxyMode: "system",
+        customProxy: "",
       },
       activeSite: Site.Jable,
       toggleSelectVideo: (url) =>

@@ -84,7 +84,7 @@ pub async fn start_cf_verifier(
     }
 
     let cf_configs_state = state.cf_configs.clone();
-    let client_clone = state.client.clone();
+    let client_clone = state.client.lock().unwrap().clone();
     let app_handle = app.clone();
     let target_url = url.clone();
     let target_domain = domain.clone();

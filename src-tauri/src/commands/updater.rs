@@ -110,12 +110,16 @@ pub async fn check_for_update(state: State<'_, AppState>) -> Result<UpdateInfo, 
     let latest_url = format!("{}/releases/latest", base);
     let list_url = format!("{}/releases?per_page=10", base);
 
-    let json = fetch_release(&state.client, latest_url).await?;
+    // Clone the client out of the lock before awaiting so the guard is not
+    // held across the network calls (proxy settings may swap the client).
+    let client = state.client.lock().unwrap().clone();
+
+    let json = fetch_release(&client, latest_url).await?;
 
     // /releases/latest can point at a prerelease; fall back to the list and
     // pick the newest stable release in that case.
     let fields = if json["prerelease"].as_bool().unwrap_or(false) {
-        let list = fetch_release(&state.client, list_url).await?;
+        let list = fetch_release(&client, list_url).await?;
         pick_release_fields(&json, Some(&list))?
     } else {
         pick_release_fields(&json, None)?

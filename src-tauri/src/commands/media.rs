@@ -13,8 +13,8 @@ pub async fn fetch_preview_video(
     state: State<'_, AppState>,
     req: PreviewVideoRequest,
 ) -> Result<Vec<u8>, String> {
-    let mut http_req = state
-        .client
+    let client = state.client.lock().unwrap().clone();
+    let mut http_req = client
         .get(&req.url)
         .header(
             "User-Agent",

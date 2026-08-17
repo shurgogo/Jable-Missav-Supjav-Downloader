@@ -34,7 +34,7 @@ pub async fn start_download(
     req: DownloadRequest,
     window: tauri::Window,
 ) -> Result<(), String> {
-    let client = state.client.clone();
+    let client = state.client.lock().unwrap().clone();
     let task_states = state.task_states.clone();
     let url = req.url.clone();
     let save_dir = req.save_dir.clone();
@@ -222,7 +222,7 @@ pub async fn resume_download(
     }
 
     let resolved_save_dir_str = resolved_save_dir.to_string_lossy().to_string();
-    let client = state.client.clone();
+    let client = state.client.lock().unwrap().clone();
     let task_states = state.task_states.clone();
 
     let (cf_clearance, user_agent) = {

@@ -241,7 +241,7 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "avdl"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "aes",
  "cbc",
@@ -4217,6 +4217,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-socks"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7e2948f60dbe26b35f2c7fb74ac2854c1fddded0fe9d7548fcc674a246f7615"
+dependencies = [
+ "either",
+ "futures-util",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5384,6 +5396,7 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-btls",
+ "tokio-socks",
  "tokio-util",
  "tower",
  "url",
